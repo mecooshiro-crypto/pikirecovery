@@ -59,6 +59,10 @@ ambiente de calma y efectos), así que no hace falta ningún archivo de audio.
 Agregá `?etapa=` a la URL: `deporte`, `cancha`, `fisica`, `situacion`, `nutricion`, `minijuego`,
 `calma`, `respiracion` y `final`.
 
+## Versión Unity
+
+En la carpeta [`unity/`](unity/README.md) está la misma experiencia en C# para **Unity 6** (360° en PC y celular, y VR con OpenXR / Meta Quest).
+
 ## Estructura
 
 ```
