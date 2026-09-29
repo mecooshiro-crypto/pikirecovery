@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Piki Recovery · Fútbol VR 360</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Piki Recovery: experiencia inmersiva 360° / VR de recuperación post-partido de fútbol. Recuperación física, nutricional y vuelta a la calma.">
+<meta name="theme-color" content="#050b16">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600&display=swap" rel="stylesheet">
+<!-- A-Frame (WebXR). Si el CDN no responde se usa la copia local de /lib -->
+<script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-v1.6.0.min.js"></script>
+<script>window.AFRAME || document.write('<script src="lib/aframe-v1.6.0.min.js"><\/script>');</script>
+<style>
+  :root { --teal:#19e3b1; --bg:#050b16; --text:#eaf2fb; --muted:#9fb3c8; }
+  html, body { margin:0; height:100%; background:var(--bg); overflow:hidden; font-family:Montserrat, system-ui, sans-serif; }
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; }
+  #brand { position:absolute; top:14px; left:16px; display:flex; align-items:center; gap:10px; color:var(--text);
+           font-weight:800; letter-spacing:.08em; font-size:13px; text-shadow:0 1px 6px rgba(0,0,0,.6); }
+  #brand .dot { width:26px; height:26px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #7dffd9, var(--teal) 55%, #0a7f66);
+                display:grid; place-items:center; color:#04131f; font-weight:900; font-size:14px; box-shadow:0 0 14px rgba(25,227,177,.6); }
+  #brand small { display:block; font-weight:600; letter-spacing:.04em; color:var(--muted); font-size:11px; }
+  #hint { position:absolute; left:50%; bottom:18px; transform:translateX(-50%); max-width:min(92vw,720px); text-align:center;
+          color:var(--text); font-size:13px; font-weight:600; background:rgba(5,11,22,.66); border:1px solid rgba(255,255,255,.14);
+          padding:9px 16px; border-radius:999px; backdrop-filter:blur(6px); transition:opacity .4s; }
+  #controls { position:absolute; top:12px; right:14px; display:flex; gap:8px; pointer-events:auto; }
+  #controls button { background:rgba(5,11,22,.7); color:var(--text); border:1px solid rgba(255,255,255,.2); border-radius:999px;
+          font:700 12px Montserrat, sans-serif; padding:8px 13px; cursor:pointer; }
+  #controls button:hover { border-color:var(--teal); }
+  #loader { position:fixed; inset:0; z-index:20; background:radial-gradient(ellipse at center, #0b1d33 0%, #050b16 70%);
+            display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text); gap:18px; transition:opacity .8s; }
+  #loader .ring { width:54px; height:54px; border-radius:50%; border:4px solid rgba(25,227,177,.2); border-top-color:var(--teal); animation:spin 1s linear infinite; }
+  #loader h1 { margin:0; font-weight:900; letter-spacing:.12em; font-size:22px; }
+  #loader p { margin:0; color:var(--muted); font-size:13px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .a-enter-vr-button, .a-enter-ar-button { z-index:15; }
+  @media (max-width:600px){ #hint{ font-size:11px; bottom:78px; } #brand small{ display:none; } }
+</style>
+</head>
+<body>
+<div id="loader"><div class="ring"></div><h1>PIKI RECOVERY</h1><p>Preparando el estadio…</p></div>
+<div id="hud">
+  <div id="brand"><div class="dot">P</div><div>PIKI RECOVERY<small>Fútbol · El trabajo invisible</small></div></div>
+  <div id="controls"><button id="btnMute" title="Silenciar (M)">🔊 Sonido</button><button id="btnRecenter" title="Recentrar (R)">⟲ Recentrar</button></div>
+  <div id="hint">Arrastrá para mirar en 360° · Clic para seleccionar</div>
+</div>
+
+<a-scene id="scene"
+  renderer="antialias: true; colorManagement: true; maxCanvasWidth: 2048; maxCanvasHeight: 2048; foveationLevel: 0.5"
+  light="defaultLightsEnabled: false"
+  loading-screen="enabled: false"
+  vr-mode-ui="enabled: true"
+  device-orientation-permission-ui="enabled: true"
+  webxr="optionalFeatures: local-floor, bounded-floor"
+  cursor="rayOrigin: mouse; fuse: false"
+  raycaster="objects: .clickable; far: 40"
+  piki-game>
+  <a-entity id="rig" position="0 0 0">
+    <a-entity id="cam" camera="fov: 75; near: 0.05; far: 900" position="0 1.6 0"
+              look-controls="magicWindowTrackingEnabled: true; touchEnabled: true; mouseEnabled: true"
+              wasd-controls="enabled: false">
+      <a-entity id="gaze" visible="false" position="0 0 -0.9"
+                cursor="fuse: true; fuseTimeout: 1300; rayOrigin: entity"
+                raycaster="objects: .clickable; far: 40; enabled: false"
+                geometry="primitive: ring; radiusInner: 0.011; radiusOuter: 0.019"
+                material="shader: flat; color: #19e3b1; opacity: 0.95; transparent: true; depthTest: false"
+                animation__fuse="property: scale; startEvents: fusing; easing: linear; dur: 1300; from: 1.8 1.8 1.8; to: 0.55 0.55 0.55"
+                animation__reset="property: scale; startEvents: mouseleave, click; dur: 150; to: 1 1 1"></a-entity>
+    </a-entity>
+    <a-entity id="handL" laser-controls="hand: left" raycaster="objects: .clickable; far: 40; lineColor: #19e3b1; lineOpacity: 0.7"></a-entity>
+    <a-entity id="handR" laser-controls="hand: right" raycaster="objects: .clickable; far: 40; lineColor: #19e3b1; lineOpacity: 0.7"></a-entity>
+  </a-entity>
+  <a-entity id="ui"></a-entity>
+</a-scene>
+
+<script>
+(() => {
+'use strict';
+/* =====================================================================
+   PIKI RECOVERY · FÚTBOL — Experiencia VR / 360°
+   Recorrido: Inicio → Elección de deporte → Cancha (final del partido)
+   → Etapa 1 Recuperación física → Etapa 2 Recuperación nutricional
+   → Etapa 3 Vuelta a la calma → Recuperación completada
+   ===================================================================== */
+const THREE = AFRAME.THREE;
+const $ = s => document.querySelector(s);
+
+/* ----------------------------- Utilidades ----------------------------- */
+const rand = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const shuffle = a => { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const fmt1 = v => v.toFixed(1).replace('.', ',');
+const ease = {
+  inOut: t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+  out: t => 1 - Math.pow(1 - t, 3),
+  in: t => t * t * t,
+  lin: t => t,
+  sine: t => -(Math.cos(Math.PI * t) - 1) / 2,
+};
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+/* Motor de tweens y "tickers" (funciona dentro y fuera de VR porque lo mueve el tick de A-Frame) */
+const tweens = [];
+function tween(ms, fn, easing = ease.inOut) {
+  return new Promise(res => tweens.push({ t: 0, d: Math.max(1, ms), fn, easing, res }));
+}
+function updateTweens(dt) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i]; tw.t += dt;
+    const k = Math.min(1, tw.t / tw.d);
+    try { tw.fn(tw.easing(k)); } catch (e) { console.error(e); }
+    if (k >= 1) { tweens.splice(i, 1); tw.res(); }
+  }
+}
+const tickers = new Set();
+
+/* ------------------------------ Paleta ------------------------------ */
+const C = {
+  teal: '#19e3b1', cyan: '#39d5ff', orange: '#ff8a3d', yellow: '#ffd93d', red: '#ff4d5e',
+  green: '#3ddc97', purple: '#b388ff', blue: '#4fc3ff', text: '#eaf2fb', muted: '#9fb3c8', dim: '#6f8396',
+};
+const FONT = "Montserrat, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const EMOJI = "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', sans-serif";
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+
+/* ------------------------- Helpers de canvas 2D ------------------------- */
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function rr(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function setFont(ctx, size, weight = 600, family = FONT, italic = false) { ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`; }
+function txt(ctx, s, x, y, o = {}) {
+  const { size = 28, weight = 600, color = C.text, align = 'left', base = 'alphabetic', ls = 0, maxW, family = FONT, italic = false, shadow } = o;
+  setFont(ctx, size, weight, family, italic); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
+  const hasLS = 'letterSpacing' in ctx; if (hasLS) ctx.letterSpacing = ls + 'px';
+  if (shadow) { ctx.shadowColor = shadow; ctx.shadowBlur = 18; }
+  if (maxW) ctx.fillText(s, x, y, maxW); else ctx.fillText(s, x, y);
+  ctx.shadowBlur = 0; if (hasLS) ctx.letterSpacing = '0px';
+}
+function wrap(ctx, text, x, y, maxW, lh, o = {}) {
+  const { size = 26, weight = 500, color = C.text, align = 'left', italic = false } = o;
+  setFont(ctx, size, weight, FONT, italic); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic';
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  const words = text.split(' '); let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = test;
+  }
+  if (line) { ctx.fillText(line, x, y); y += lh; }
+  return y;
+}
+function circle(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); }
+function panelBg(ctx, W, H, accent = C.teal, alpha = .9) {
+  const p = 4, r = 34;
+  ctx.save();
+  rr(ctx, p, p, W - 2 * p, H - 2 * p, r);
+  const g = ctx.createLinearGradient(0, 0, W * .4, H);
+  g.addColorStop(0, `rgba(13,30,50,${alpha})`); g.addColorStop(1, `rgba(4,10,20,${alpha})`);
+  ctx.fillStyle = g; ctx.fill(); ctx.clip();
+  const gg = ctx.createRadialGradient(W * .12, 0, 0, W * .12, 0, W * .7);
+  gg.addColorStop(0, hexA(accent, .2)); gg.addColorStop(1, hexA(accent, 0));
+  ctx.fillStyle = gg; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = accent; ctx.fillRect(0, 0, W, 7);
+  ctx.restore();
+  rr(ctx, p, p, W - 2 * p, H - 2 * p, r); ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.stroke();
+}
+function chip(ctx, x, y, label, color, o = {}) {
+  const { size = 19, padX = 16, h = 38, fill = hexA(color, .16), textColor = color, weight = 700 } = o;
+  setFont(ctx, size, weight); const w = ctx.measureText(label).width + padX * 2;
+  rr(ctx, x, y, w, h, h / 2); ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = hexA(color, .55); ctx.lineWidth = 2; ctx.stroke();
+  txt(ctx, label, x + padX, y + h / 2 + size * .36, { size, weight, color: textColor });
+  return w;
+}
+function stepper(ctx, x, y, w, cur, accent = C.teal) {
+  const L = ['Física', 'Nutrición', 'Calma']; const st = w / 3;
+  for (let i = 0; i < 3; i++) {
+    const cx = x + st * i + st / 2;
+    if (i < 2) { ctx.strokeStyle = i < cur ? C.teal : 'rgba(255,255,255,.18)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx + 20, y); ctx.lineTo(cx + st - 20, y); ctx.stroke(); }
+    const done = i < cur, now = i === cur;
+    circle(ctx, cx, y, 15);
+    if (done) { ctx.fillStyle = C.teal; ctx.fill(); iconCheck(ctx, cx, y, 8, '#04131f', 3.2); }
+    else if (now) { ctx.fillStyle = hexA(accent, .25); ctx.fill(); ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.stroke(); txt(ctx, String(i + 1), cx, y + 6, { size: 16, weight: 800, align: 'center' }); }
+    else { ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 2; ctx.stroke(); txt(ctx, String(i + 1), cx, y + 6, { size: 15, weight: 700, color: C.dim, align: 'center' }); }
+    txt(ctx, L[i], cx, y + 38, { size: 16, weight: 700, color: done || now ? C.text : C.dim, align: 'center' });
+  }
+}
+function progressBar(ctx, x, y, w, h, k, color) {
+  rr(ctx, x, y, w, h, h / 2); ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fill();
+  if (k > 0) { rr(ctx, x, y, Math.max(h, w * k), h, h / 2); const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, hexA(color, .7)); g.addColorStop(1, color); ctx.fillStyle = g; ctx.fill(); }
+}
+
+/* ------------------------------ Íconos vectoriales ------------------------------ */
+function iconCheck(ctx, cx, cy, r, color, lw = 4) {
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx - r * .3, cy + r * .7); ctx.lineTo(cx + r, cy - r * .7); ctx.stroke();
+}
+function iconCross(ctx, cx, cy, r, color, lw = 4) {
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - r, cy - r); ctx.lineTo(cx + r, cy + r); ctx.moveTo(cx + r, cy - r); ctx.lineTo(cx - r, cy + r); ctx.stroke();
+}
+function iconSnow(ctx, cx, cy, r, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = r * .13; ctx.lineCap = 'round';
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3, ex = cx + Math.cos(a) * r, ey = cy + Math.sin(a) * r;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+    const bx = cx + Math.cos(a) * r * .6, by = cy + Math.sin(a) * r * .6;
+    for (const s of [-1, 1]) { const b = a + s * .7; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + Math.cos(b) * r * .3, by + Math.sin(b) * r * .3); ctx.stroke(); }
+  }
+  circle(ctx, cx, cy, r * .14); ctx.fillStyle = color; ctx.fill();
+}
+function iconFlame(ctx, cx, cy, r, color) {
+  const path = (s, oy) => {
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * s + oy);
+    ctx.bezierCurveTo(cx + r * .95 * s, cy - r * .15 * s + oy, cx + r * .85 * s, cy + r * .95 * s + oy, cx, cy + r * s + oy);
+    ctx.bezierCurveTo(cx - r * .85 * s, cy + r * .95 * s + oy, cx - r * .95 * s, cy - r * .05 * s + oy, cx - r * .3 * s, cy - r * .45 * s + oy);
+    ctx.bezierCurveTo(cx - r * .2 * s, cy - r * .1 * s + oy, cx - r * .05 * s, cy - r * .35 * s + oy, cx, cy - r * s + oy);
+  };
+  path(1, 0); const g = ctx.createLinearGradient(0, cy - r, 0, cy + r); g.addColorStop(0, '#ffd93d'); g.addColorStop(1, color); ctx.fillStyle = g; ctx.fill();
+  path(.5, r * .42); ctx.fillStyle = '#fff3b0'; ctx.fill();
+}
+function iconHands(ctx, cx, cy, r, color) {
+  ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineCap = 'round';
+  rr(ctx, -r * .5, -r * .1, r, r * .8, r * .28); ctx.fill();
+  const fx = [-.38, -.13, .12, .37], fl = [.55, .7, .68, .52];
+  fx.forEach((x, i) => { ctx.lineWidth = r * .22; ctx.beginPath(); ctx.moveTo(x * r, 0); ctx.lineTo(x * r, -fl[i] * r); ctx.stroke(); });
+  ctx.lineWidth = r * .22; ctx.beginPath(); ctx.moveTo(-r * .45, r * .35); ctx.lineTo(-r * .85, r * .02); ctx.stroke();
+  ctx.lineWidth = r * .08; ctx.globalAlpha = .7;
+  for (const s of [1.05, 1.3]) { ctx.beginPath(); ctx.arc(0, r * .2, r * s, -Math.PI * .15, Math.PI * .15); ctx.stroke(); ctx.beginPath(); ctx.arc(0, r * .2, r * s, Math.PI * .85, Math.PI * 1.15); ctx.stroke(); }
+  ctx.restore();
+}
+function iconDrop(ctx, cx, cy, r, color) {
+  ctx.beginPath(); ctx.moveTo(cx, cy - r);
+  ctx.bezierCurveTo(cx + r * .2, cy - r * .5, cx + r * .72, cy - r * .05, cx + r * .72, cy + r * .3);
+  ctx.arc(cx, cy + r * .3, r * .72, 0, Math.PI);
+  ctx.bezierCurveTo(cx - r * .72, cy - r * .05, cx - r * .2, cy - r * .5, cx, cy - r);
+  ctx.fillStyle = color; ctx.fill();
+}
+function iconBolt(ctx, cx, cy, r, color) {
+  ctx.beginPath(); ctx.moveTo(cx + r * .2, cy - r); ctx.lineTo(cx - r * .55, cy + r * .15); ctx.lineTo(cx - r * .02, cy + r * .15);
+  ctx.lineTo(cx - r * .2, cy + r); ctx.lineTo(cx + r * .55, cy - r * .18); ctx.lineTo(cx + r * .02, cy - r * .18); ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+}
+function iconDumbbell(ctx, cx, cy, r, color) {
+  ctx.fillStyle = color;
+  rr(ctx, cx - r * .6, cy - r * .1, r * 1.2, r * .2, r * .08); ctx.fill();
+  for (const s of [-1, 1]) { rr(ctx, cx + s * r * .62 - r * .13, cy - r * .55, r * .26, r * 1.1, r * .1); ctx.fill(); rr(ctx, cx + s * r * .9 - r * .1, cy - r * .35, r * .2, r * .7, r * .08); ctx.fill(); }
+}
+function iconHeart(ctx, cx, cy, r, color) {
+  ctx.beginPath(); ctx.moveTo(cx, cy + r * .8);
+  ctx.bezierCurveTo(cx - r * 1.3, cy - r * .1, cx - r * .6, cy - r * 1.1, cx, cy - r * .35);
+  ctx.bezierCurveTo(cx + r * .6, cy - r * 1.1, cx + r * 1.3, cy - r * .1, cx, cy + r * .8);
+  ctx.fillStyle = color; ctx.fill();
+}
+function iconBreath(ctx, cx, cy, r, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = r * .14; ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    const y = cy - r * .5 + i * r * .5; ctx.beginPath();
+    for (let x = -r; x <= r; x += 2) { const yy = y + Math.sin((x / r) * Math.PI * 1.5 + i) * r * .15; x === -r ? ctx.moveTo(cx + x, yy) : ctx.lineTo(cx + x, yy); }
+    ctx.stroke();
+  }
+}
+function iconBody(ctx, cx, cy, r, color) {
+  ctx.fillStyle = color; circle(ctx, cx, cy - r * .72, r * .24); ctx.fill();
+  rr(ctx, cx - r * .32, cy - r * .42, r * .64, r * .72, r * .18); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = r * .2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - r * .16, cy + r * .3); ctx.lineTo(cx - r * .22, cy + r); ctx.moveTo(cx + r * .16, cy + r * .3); ctx.lineTo(cx + r * .22, cy + r); ctx.stroke();
+}
+function iconBall(ctx, cx, cy, r) {
+  const g = ctx.createRadialGradient(cx - r * .35, cy - r * .35, r * .1, cx, cy, r);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#c9d3dd');
+  circle(ctx, cx, cy, r); ctx.fillStyle = g; ctx.fill();
+  ctx.save(); circle(ctx, cx, cy, r); ctx.clip(); ctx.fillStyle = '#10151c';
+  const pent = (px, py, pr, rot) => { ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = rot + i * Math.PI * 2 / 5; ctx.lineTo(px + Math.cos(a) * pr, py + Math.sin(a) * pr); } ctx.closePath(); ctx.fill(); };
+  pent(cx, cy, r * .3, -Math.PI / 2);
+  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 5; pent(cx + Math.cos(a) * r * .88, cy + Math.sin(a) * r * .88, r * .26, a + Math.PI / 5); }
+  ctx.strokeStyle = '#10151c'; ctx.lineWidth = r * .04;
+  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 5; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r * .3, cy + Math.sin(a) * r * .3); ctx.lineTo(cx + Math.cos(a) * r * .64, cy + Math.sin(a) * r * .64); ctx.stroke(); }
+  ctx.restore();
+  circle(ctx, cx, cy, r); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; ctx.stroke();
+}
+function iconStar(ctx, cx, cy, r, fill, stroke) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r * .45 : r; ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); }
+  ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2.5; ctx.stroke(); }
+}
+function iconLock(ctx, cx, cy, r, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = r * .18; ctx.beginPath(); ctx.arc(cx, cy - r * .2, r * .45, Math.PI, 0); ctx.stroke();
+  rr(ctx, cx - r * .65, cy - r * .2, r * 1.3, r * 1.0, r * .18); ctx.fillStyle = color; ctx.fill();
+}
+
+/* ------------------------- Texturas compartidas ------------------------- */
+function canvasTex(cv, repeat) {
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+  return t;
+}
+const glowTex = (() => {
+  const c = mkCanvas(128, 128), x = c.getContext('2d'); const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.25, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return canvasTex(c);
+})();
+const dotTex = (() => {
+  const c = mkCanvas(64, 64), x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.4, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return canvasTex(c);
+})();
+function glowSprite(color, scale, opacity = 1) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  s.scale.set(scale, scale, 1); return s;
+}
+const std = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: .8, metalness: .05 }, o));
+
+/* ===================================================================
+   AUDIO (Web Audio sintetizado: no requiere archivos)
+   =================================================================== */
+const Sound = (() => {
+  let ctx = null, master, sfx, music, amb, noise, muted = false;
+  const S = {};
+  S.init = () => {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    if (!ctx) {
+      ctx = new AC();
+      const comp = ctx.createDynamicsCompressor(); comp.connect(ctx.destination);
+      master = ctx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(comp);
+      sfx = bus(.75); music = bus(.5); amb = bus(.7);
+      const len = ctx.sampleRate * 3, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      noise = b;
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+  };
+  function bus(v) { const n = ctx.createGain(); n.gain.value = v; n.connect(master); return n; }
+  S.ready = () => !!ctx;
+  S.tone = ({ f = 440, f2, type = 'sine', t = 0, d = .15, v = .3, attack = .006, dest, lp }) => {
+    if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain(), now = ctx.currentTime + t;
+    o.type = type; o.frequency.setValueAtTime(f, now); if (f2) o.frequency.exponentialRampToValueAtTime(f2, now + d);
+    g.gain.setValueAtTime(.0001, now); g.gain.exponentialRampToValueAtTime(v, now + attack); g.gain.exponentialRampToValueAtTime(.0001, now + d);
+    let node = o;
+    if (lp) { const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; node.connect(fl); node = fl; }
+    node.connect(g).connect(dest || sfx); o.start(now); o.stop(now + d + .05);
+  };
+  function noiseHit(t, d, v, type, freq, dest) {
+    const s = ctx.createBufferSource(); s.buffer = noise; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+    const g = ctx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    s.connect(f).connect(g).connect(dest); s.start(t, Math.random() * 2); s.stop(t + d + .02);
+  }
+  S.click = () => S.tone({ f: 660, f2: 990, type: 'triangle', d: .09, v: .16 });
+  S.hover = () => S.tone({ f: 1400, type: 'sine', d: .04, v: .035 });
+  S.correct = () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => S.tone({ f, type: 'triangle', t: i * .085, d: .4, v: .18 }));
+  S.wrong = () => { S.tone({ f: 220, f2: 130, type: 'sawtooth', d: .38, v: .1, lp: 900 }); S.tone({ f: 233, f2: 138, type: 'sawtooth', d: .38, v: .07, lp: 900 }); };
+  S.soft = () => S.tone({ f: 300, f2: 240, type: 'triangle', d: .18, v: .1 });
+  S.good = () => { S.tone({ f: 520, f2: 1040, type: 'sine', d: .16, v: .2 }); S.tone({ f: 1560, type: 'sine', t: .05, d: .12, v: .06 }); };
+  S.bad = () => S.tone({ f: 190, f2: 90, type: 'square', d: .24, v: .09, lp: 700 });
+  S.level = () => [440, 554, 659, 880].forEach((f, i) => S.tone({ f, type: 'square', t: i * .07, d: .13, v: .07, lp: 2200 }));
+  S.beep = hi => S.tone({ f: hi ? 1320 : 660, type: 'sine', d: hi ? .45 : .16, v: .2 });
+  S.whoosh = () => { if (ctx) noiseHit(ctx.currentTime, .6, .25, 'bandpass', 900, sfx); };
+  S.whistle = (pattern = [.24, .24, 1.05]) => {
+    if (!ctx) return; let t = ctx.currentTime + .05;
+    pattern.forEach(d => {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 2780;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 36; const lg = ctx.createGain(); lg.gain.value = 170; lfo.connect(lg).connect(o.frequency);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.14, t + .02); g.gain.setValueAtTime(.14, t + d - .05); g.gain.linearRampToValueAtTime(0, t + d);
+      o.connect(g).connect(sfx); o.start(t); lfo.start(t); o.stop(t + d + .05); lfo.stop(t + d + .05); t += d + .13;
+    });
+  };
+  /* Público */
+  let crowd = null;
+  S.crowdStart = (level = .45) => {
+    if (!ctx || crowd) return;
+    const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 620; bp.Q.value = .45;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1900;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(bp).connect(lp).connect(g).connect(amb); src.start();
+    g.gain.linearRampToValueAtTime(level, ctx.currentTime + 2.5);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = .11; const lg = ctx.createGain(); lg.gain.value = level * .3; lfo.connect(lg).connect(g.gain); lfo.start();
+    crowd = { src, g, lfo, level };
+  };
+  S.crowdCheer = (mult = 2.2, hold = 3.5) => {
+    if (!crowd) return; const t = ctx.currentTime, gp = crowd.g.gain;
+    gp.cancelScheduledValues(t); gp.setValueAtTime(gp.value, t); gp.linearRampToValueAtTime(crowd.level * mult, t + .5); gp.linearRampToValueAtTime(crowd.level, t + hold);
+  };
+  S.crowdLevel = (v, fade = 2) => {
+    if (!crowd) return; const t = ctx.currentTime, gp = crowd.g.gain; crowd.level = v;
+    gp.cancelScheduledValues(t); gp.setValueAtTime(gp.value, t); gp.linearRampToValueAtTime(v, t + fade);
+  };
+  S.crowdStop = (fade = 2.5) => {
+    if (!crowd) return; const c = crowd; crowd = null; const t = ctx.currentTime;
+    c.g.gain.cancelScheduledValues(t); c.g.gain.setValueAtTime(c.g.gain.value, t); c.g.gain.linearRampToValueAtTime(0, t + fade);
+    c.src.stop(t + fade + .1); c.lfo.stop(t + fade + .1);
+  };
+  /* Música del minijuego */
+  let beat = null;
+  S.beatStart = () => {
+    if (!ctx || beat) return;
+    const b = ctx.createGain(); b.gain.value = 0; b.connect(music); b.gain.linearRampToValueAtTime(.9, ctx.currentTime + 1.2);
+    beat = { bus: b, bpm: 100, step: 0, next: ctx.currentTime + .1, level: 1 };
+    beat.timer = setInterval(schedule, 25);
+  };
+  function schedule() {
+    const b = beat; if (!b) return;
+    while (b.next < ctx.currentTime + .12) { playStep(b, b.step, b.next); b.next += 60 / b.bpm / 4; b.step = (b.step + 1) % 64; }
+  }
+  const BASS = [55, 55, 65.41, 49];
+  const ARP = [440, 523.25, 659.25, 783.99, 659.25, 523.25];
+  function playStep(b, s, t) {
+    const i = s % 16, sp = 60 / b.bpm / 4;
+    if (i % 4 === 0) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .13); g.gain.setValueAtTime(.55, t); g.gain.exponentialRampToValueAtTime(.001, t + .28); o.connect(g).connect(b.bus); o.start(t); o.stop(t + .3); }
+    if (i === 4 || i === 12) noiseHit(t, .16, .22, 'highpass', 1400, b.bus);
+    if (i % 2 === 1 || b.level >= 3) noiseHit(t, .035, i % 4 === 2 ? .07 : .045, 'highpass', 7500, b.bus);
+    if (i % 4 === 0 || i === 6 || i === 14) {
+      const f = BASS[Math.floor(s / 16) % 4], o = ctx.createOscillator(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = 380;
+      g.gain.setValueAtTime(.16, t); g.gain.exponentialRampToValueAtTime(.001, t + sp * 1.8); o.connect(fl).connect(g).connect(b.bus); o.start(t); o.stop(t + sp * 2);
+    }
+    if (b.level >= 2 && i % 2 === 0) {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = ARP[(s / 2) % ARP.length] * (b.level >= 3 ? 1 : .5);
+      g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.001, t + sp * 1.5); o.connect(g).connect(b.bus); o.start(t); o.stop(t + sp * 1.6);
+    }
+  }
+  S.beatLevel = lvl => { if (beat) { beat.level = lvl; beat.bpm = [0, 100, 118, 136][lvl]; } };
+  S.beatStop = (fade = 1.2) => {
+    if (!beat) return; const b = beat; beat = null; const t = ctx.currentTime;
+    b.bus.gain.cancelScheduledValues(t); b.bus.gain.setValueAtTime(b.bus.gain.value, t); b.bus.gain.linearRampToValueAtTime(0, t + fade);
+    setTimeout(() => { clearInterval(b.timer); b.bus.disconnect(); }, fade * 1000 + 200);
+  };
+  /* Pad ambiental (vuelta a la calma) */
+  let pad = null;
+  S.padStart = (level = .5) => {
+    if (!ctx || pad) return;
+    const b = ctx.createGain(); b.gain.value = 0; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 750; lp.Q.value = .7;
+    lp.connect(b).connect(music);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = .06; const lg = ctx.createGain(); lg.gain.value = 320; lfo.connect(lg).connect(lp.frequency); lfo.start();
+    const oscs = [];
+    [110, 164.81, 220, 246.94, 261.63, 329.63].forEach((f, i) => {
+      for (const det of [-4, 4]) { const o = ctx.createOscillator(); o.type = i < 2 ? 'sine' : 'triangle'; o.frequency.value = f; o.detune.value = det; const g = ctx.createGain(); g.gain.value = i < 2 ? .09 : .045; o.connect(g).connect(lp); o.start(); oscs.push(o); }
+    });
+    const w = ctx.createBufferSource(); w.buffer = noise; w.loop = true; const wf = ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 320; const wg = ctx.createGain(); wg.gain.value = .05;
+    w.connect(wf).connect(wg).connect(amb); w.start(); oscs.push(w);
+    b.gain.linearRampToValueAtTime(level, ctx.currentTime + 4);
+    pad = { b, oscs, lfo };
+  };
+  S.padLevel = (v, fade = 3) => { if (!pad) return; const t = ctx.currentTime, gp = pad.b.gain; gp.cancelScheduledValues(t); gp.setValueAtTime(gp.value, t); gp.linearRampToValueAtTime(v, t + fade); };
+  S.padStop = (fade = 3) => {
+    if (!pad) return; const p = pad; pad = null; const t = ctx.currentTime;
+    p.b.gain.cancelScheduledValues(t); p.b.gain.setValueAtTime(p.b.gain.value, t); p.b.gain.linearRampToValueAtTime(0, t + fade);
+    p.oscs.forEach(o => o.stop(t + fade + .1)); p.lfo.stop(t + fade + .1);
+  };
+  S.breath = (inhale, dur) => {
+    if (!ctx) return; const t = ctx.currentTime;
+    const s = ctx.createBufferSource(); s.buffer = noise; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = .9;
+    f.frequency.setValueAtTime(inhale ? 350 : 1100, t); f.frequency.linearRampToValueAtTime(inhale ? 1100 : 300, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.08, t + dur * .35); g.gain.linearRampToValueAtTime(.0001, t + dur);
+    s.connect(f).connect(g).connect(amb); s.start(t, Math.random()); s.stop(t + dur + .05);
+    S.tone({ f: inhale ? 392 : 329.63, type: 'sine', d: 1.6, v: .05, attack: .3, dest: music });
+  };
+  S.finalChord = () => [261.63, 329.63, 392, 493.88, 523.25, 659.25].forEach((f, i) => S.tone({ f, type: 'triangle', t: i * .12, d: 3.2, v: .08, attack: .05 }));
+  S.setMuted = m => { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 1, ctx.currentTime, .05); };
+  S.isMuted = () => muted;
+  return S;
+})();
+
+/* ===================================================================
+   ESTADO GLOBAL
+   =================================================================== */
+const G = {
+  sport: 'futbol', match: null, env: null,
+  phys: null, nutri: null, calm: null,
+};
+function newMatch() {
+  return {
+    minutes: 90 + randi(2, 5), km: rand(9.6, 11.9), sprints: randi(26, 41), fcmax: randi(181, 195),
+    sweat: rand(1.3, 2.3), kcal: randi(1250, 1650), goalsHome: 2, goalsAway: 1,
+  };
+}
+
+/* ===================================================================
+   ESCENA / REFERENCIAS
+   =================================================================== */
+let sceneEl, scene3, camEl, rigEl, uiRoot;
+let fadeMesh, cardEl;
+
+/* ------------------------- Canvas planes (UI 3D) ------------------------- */
+function disposeObj(o) {
+  o.traverse(n => {
+    if (n.geometry) n.geometry.dispose();
+    if (n.material) { const ms = Array.isArray(n.material) ? n.material : [n.material]; ms.forEach(m => { if (m.map && m.map !== glowTex && m.map !== dotTex && !m.map.userData.shared) m.map.dispose(); m.dispose(); }); }
+  });
+}
+function removeEl(el) {
+  if (!el) return;
+  if (el.ticks) el.ticks.forEach(f => tickers.delete(f));
+  el.querySelectorAll && el.querySelectorAll('*').forEach(c => c.ticks && c.ticks.forEach(f => tickers.delete(f)));
+  hoverAnim.delete(el);
+  try { disposeObj(el.object3D); } catch (e) { }
+  if (el.parentNode) el.parentNode.removeChild(el);
+}
+function canvasPlane(w, h, draw, o = {}) {
+  const { ppm = 400, parent = uiRoot, pos = [0, 0, 0], rot = [0, 0, 0], clickable = false, order = 10, state = {}, depthTest = true } = o;
+  const cv = mkCanvas(Math.round(w * ppm), Math.round(h * ppm)); const ctx = cv.getContext('2d');
+  const tex = canvasTex(cv);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest, fog: false, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); mesh.renderOrder = order;
+  const el = document.createElement('a-entity');
+  // se asigna directo al object3D (sin atributos) para que A-Frame no lo pise al inicializar
+  el.object3D.position.set(pos[0], pos[1], pos[2]);
+  el.object3D.rotation.set(THREE.MathUtils.degToRad(rot[0]), THREE.MathUtils.degToRad(rot[1]), THREE.MathUtils.degToRad(rot[2]));
+  if (clickable) el.classList.add('clickable');
+  parent.appendChild(el); el.setObject3D('mesh', mesh);
+  el.ui = { cv, ctx, tex, state, draw, mesh, mat };
+  el.redraw = patch => { if (patch) Object.assign(el.ui.state, patch); ctx.clearRect(0, 0, cv.width, cv.height); draw(ctx, cv.width, cv.height, el.ui.state); tex.needsUpdate = true; };
+  el.redraw();
+  return el;
+}
+/* animación de escala al pasar el puntero */
+const hoverAnim = new Set();
+function scaleTo(el, s) { el._ts = s; hoverAnim.add(el); }
+tickers.add(dt => {
+  hoverAnim.forEach(el => {
+    const sc = el.object3D.scale, v = lerp(sc.x, el._ts, 1 - Math.exp(-dt * 16)); sc.setScalar(v);
+    if (Math.abs(v - el._ts) < .001) { sc.setScalar(el._ts); hoverAnim.delete(el); }
+  });
+});
+function appear(el, delay = 0, dur = 450) {
+  const m = el.ui && el.ui.mat; if (!m) return Promise.resolve();
+  m.opacity = 0; el.object3D.scale.setScalar(.93);
+  return wait(delay).then(() => tween(dur, k => { m.opacity = k; if (!hoverAnim.has(el)) el.object3D.scale.setScalar(.93 + .07 * k); }, ease.out));
+}
+function vanish(el, dur = 300) {
+  const m = el && el.ui && el.ui.mat; if (!m) { removeEl(el); return Promise.resolve(); }
+  if (el.classList) el.classList.remove('clickable');
+  return tween(dur, k => { m.opacity = 1 - k; el.object3D.scale.setScalar(1 - .05 * k); }).then(() => removeEl(el));
+}
+let lastClick = 0;
+function drawButton(c, W, H, s) {
+  const p = Math.round(H * .1), r = (H - 2 * p) / 2;
+  const variants = {
+    primary: { a: '#22f0bf', b: '#0fb5d6', text: '#04131f', border: 'rgba(255,255,255,.5)' },
+    secondary: { a: 'rgba(255,255,255,.1)', b: 'rgba(255,255,255,.04)', text: C.text, border: 'rgba(255,255,255,.4)' },
+    warm: { a: '#ffb36b', b: '#ff7a3d', text: '#1a0c02', border: 'rgba(255,255,255,.5)' },
+  };
+  const v = variants[s.variant || 'primary'];
+  c.globalAlpha = s.disabled ? .35 : 1;
+  if (s.hover) { c.shadowColor = s.variant === 'secondary' ? 'rgba(255,255,255,.5)' : v.a; c.shadowBlur = p * 1.6; }
+  rr(c, p, p, W - 2 * p, H - 2 * p, r);
+  const g = c.createLinearGradient(0, 0, W, H); g.addColorStop(0, v.a); g.addColorStop(1, v.b); c.fillStyle = g; c.fill();
+  c.shadowBlur = 0; c.lineWidth = s.hover ? 4 : 2.5; c.strokeStyle = s.hover ? '#ffffff' : v.border; c.stroke();
+  txt(c, s.label, W / 2, H / 2 + H * .12, { size: Math.round(H * .34), weight: 800, color: v.text, align: 'center', ls: 1.5 });
+  c.globalAlpha = 1;
+}
+function button(label, o = {}) {
+  const { w = 1, h = .22, parent, pos, rot, variant = 'primary', onClick, draw = drawButton, state = {}, ppm = 400 } = o;
+  const el = canvasPlane(w, h, draw, { parent, pos, rot, clickable: true, order: 20, ppm, state: Object.assign({ label, variant, hover: false, disabled: false }, state) });
+  el.addEventListener('mouseenter', () => { if (el.ui.state.disabled) return; el.redraw({ hover: true }); scaleTo(el, 1.06); Sound.hover(); });
+  el.addEventListener('mouseleave', () => { el.redraw({ hover: false }); scaleTo(el, 1); });
+  el.addEventListener('click', () => {
+    if (el.ui.state.disabled || !el.parentNode || !el.classList.contains('clickable')) return;
+    const now = performance.now(); if (now - lastClick < 380) return; lastClick = now;
+    Sound.init(); Sound.click(); onClick && onClick(el);
+  });
+  return el;
+}
+
+/* ------------------------- Escenario (stage) y pantallas ------------------------- */
+let stage = null, screen = null;
+function camWorld() {
+  const o = camEl.object3D; o.updateWorldMatrix(true, false);
+  const q = new THREE.Quaternion(), p = new THREE.Vector3(); o.getWorldQuaternion(q); o.getWorldPosition(p);
+  const e = new THREE.Euler().setFromQuaternion(q, 'YXZ'); return { yaw: e.y, pos: p };
+}
+function makeStage() {
+  removeEl(stage); stage = null; screen = null; body = null;
+  const { yaw, pos } = camWorld();
+  const el = document.createElement('a-entity'); uiRoot.appendChild(el);
+  const lift = sceneEl.is('vr-mode') ? clamp(pos.y - 1.6, -.6, .4) : 0;
+  el.object3D.position.set(pos.x, lift, pos.z); el.object3D.rotation.y = yaw;
+  el.floorY = -lift; el.ticks = new Set(); stage = el; return el;
+}
+function makeScreen() {
+  removeEl(screen);
+  const el = document.createElement('a-entity'); stage.appendChild(el); el.ticks = new Set(); screen = el; return el;
+}
+function onTick(fn, owner = screen) { tickers.add(fn); owner.ticks.add(fn); return () => { tickers.delete(fn); owner.ticks.delete(fn); }; }
+function setHint(s) { const h = $('#hint'); h.textContent = s; h.style.opacity = s ? 1 : 0; }
+
+/* ------------------------- Fundido y carteles ------------------------- */
+function fade(to, ms = 900) { const m = fadeMesh.material, from = m.opacity; return tween(ms, k => m.opacity = lerp(from, to, k)); }
+function drawCard(c, W, H, s) {
+  txt(c, s.kicker || '', W / 2, H * .3, { size: 26, weight: 800, color: s.color || C.teal, align: 'center', ls: 8 });
+  txt(c, s.title || '', W / 2, H * .58, { size: 78, weight: 900, color: '#fff', align: 'center' });
+  if (s.sub) txt(c, s.sub, W / 2, H * .8, { size: 28, weight: 500, color: C.muted, align: 'center' });
+}
+async function transition(setup, o = {}) {
+  const { card, hold = 1500, fadeMs = 900 } = o;
+  Sound.whoosh();
+  await fade(1, fadeMs);
+  if (card) { cardEl.redraw(card); cardEl.ui.mat.opacity = 0; cardEl.object3D.visible = true; await tween(500, k => cardEl.ui.mat.opacity = k); }
+  const t0 = performance.now();
+  await setup();
+  if (card) { const el = performance.now() - t0; if (el < hold) await wait(hold - el); await tween(450, k => cardEl.ui.mat.opacity = 1 - k); cardEl.object3D.visible = false; }
+  await fade(0, fadeMs);
+}
+function resetView() {
+  const lc = camEl.components['look-controls'];
+  if (lc && !sceneEl.is('vr-mode')) { lc.yawObject.rotation.y = 0; lc.pitchObject.rotation.x = 0; }
+}
+
+/* ===================================================================
+   ENTORNOS 3D
+   =================================================================== */
+const ENV = {};
+
+/* ---------------------------- Cielo ---------------------------- */
+const SKY = {
+  hub:   { zen: '#01030a', mid: '#040b1a', hor: '#0b1c33', gnd: '#02050b', sun: 0 },
+  dusk:  { zen: '#070b22', mid: '#27305f', hor: '#f0874a', gnd: '#150f1a', sun: .9 },
+  night: { zen: '#010209', mid: '#040b22', hor: '#12284a', gnd: '#02040a', sun: 0 },
+  dawn:  { zen: '#23376b', mid: '#7f93c4', hor: '#ffc58a', gnd: '#3a2c2a', sun: 1 },
+};
+function buildSky() {
+  const cv = mkCanvas(1024, 512), c = cv.getContext('2d'); const tex = canvasTex(cv);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(500, 48, 24), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false }));
+  mesh.renderOrder = -10; scene3.add(mesh);
+  const ca = new THREE.Color(), cb = new THREE.Color();
+  const mix = (a, b, k) => '#' + ca.set(a).lerp(cb.set(b), k).getHexString();
+  ENV.sky = {
+    mesh, cur: SKY.hub,
+    draw(p) {
+      this.cur = p;
+      const g = c.createLinearGradient(0, 0, 0, 512);
+      g.addColorStop(0, p.zen); g.addColorStop(.32, p.mid); g.addColorStop(.5, p.hor); g.addColorStop(.53, p.gnd); g.addColorStop(1, p.gnd);
+      c.fillStyle = g; c.fillRect(0, 0, 1024, 512);
+      if (p.sun > 0) { // resplandor del sol hacia la tribuna izquierda
+        const sx = 1024 * .62, sy = 250; const rg = c.createRadialGradient(sx, sy, 0, sx, sy, 260);
+        rg.addColorStop(0, `rgba(255,236,190,${.85 * p.sun})`); rg.addColorStop(.15, `rgba(255,190,120,${.45 * p.sun})`); rg.addColorStop(1, 'rgba(255,160,90,0)');
+        c.fillStyle = rg; c.fillRect(0, 0, 1024, 512);
+      }
+      tex.needsUpdate = true;
+    },
+    blend(a, b, k) { this.draw({ zen: mix(a.zen, b.zen, k), mid: mix(a.mid, b.mid, k), hor: mix(a.hor, b.hor, k), gnd: mix(a.gnd, b.gnd, k), sun: lerp(a.sun, b.sun, k) }); },
+  };
+  // estrellas
+  const n = 1400, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const u = Math.random() * Math.PI * 2, v = Math.acos(rand(.08, 1)), r = 460; pos[i * 3] = Math.sin(v) * Math.cos(u) * r; pos[i * 3 + 1] = Math.cos(v) * r; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * r; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false, map: dotTex }));
+  scene3.add(stars); ENV.stars = stars;
+}
+
+/* ---------------------------- Luces ---------------------------- */
+function buildLights() {
+  const hemi = new THREE.HemisphereLight(0xb8c8ff, 0x1d2b1d, .6);
+  const dir = new THREE.DirectionalLight(0xffffff, 1); dir.position.set(25, 60, 20);
+  const amb = new THREE.AmbientLight(0xffffff, .2);
+  scene3.add(hemi, dir, amb); ENV.lights = { hemi, dir, amb };
+  scene3.fog = new THREE.FogExp2(0x0a1422, .004);
+}
+const LIGHT = {
+  hub:    { hemiSky: '#6fa8ff', hemiGnd: '#081018', hemi: .5, dir: '#ffffff', dirI: .2, amb: .25, fog: '#050b16', fogD: .018, stars: .6, flood: 0 },
+  match:  { hemiSky: '#c8d4ff', hemiGnd: '#1d2b1d', hemi: .85, dir: '#ffffff', dirI: 1.25, amb: .22, fog: '#2a2748', fogD: .0028, stars: .15, flood: 1 },
+  calm:   { hemiSky: '#5c74b8', hemiGnd: '#0b120e', hemi: .42, dir: '#a9bcff', dirI: .42, amb: .1, fog: '#050a18', fogD: .0055, stars: 1, flood: .22 },
+  dawn:   { hemiSky: '#ffe0bf', hemiGnd: '#2b3326', hemi: .9, dir: '#ffd2a1', dirI: 1.05, amb: .22, fog: '#c9a393', fogD: .0022, stars: 0, flood: 0 },
+  locker: { hemiSky: '#fff3e0', hemiGnd: '#3a3530', hemi: .45, dir: '#ffffff', dirI: .25, amb: .18, fog: '#000000', fogD: 0, stars: 0, flood: 0 },
+};
+function applyLight(a, b = a, k = 0) {
+  const L = ENV.lights, c1 = new THREE.Color(), c2 = new THREE.Color();
+  L.hemi.color.copy(c1.set(a.hemiSky)).lerp(c2.set(b.hemiSky), k);
+  L.hemi.groundColor.copy(c1.set(a.hemiGnd)).lerp(c2.set(b.hemiGnd), k);
+  L.hemi.intensity = lerp(a.hemi, b.hemi, k);
+  L.dir.color.copy(c1.set(a.dir)).lerp(c2.set(b.dir), k); L.dir.intensity = lerp(a.dirI, b.dirI, k);
+  L.amb.intensity = lerp(a.amb, b.amb, k);
+  scene3.fog.color.copy(c1.set(a.fog)).lerp(c2.set(b.fog), k); scene3.fog.density = lerp(a.fogD, b.fogD, k);
+  ENV.stars.material.opacity = lerp(a.stars, b.stars, k);
+  if (ENV.stadium) ENV.stadium.setFlood(lerp(a.flood, b.flood, k));
+}
+
+/* ---------------------------- HUB (inicio) ---------------------------- */
+function buildHub() {
+  const g = new THREE.Group();
+  const grid = new THREE.GridHelper(200, 100, 0x19e3b1, 0x0d3b4a); grid.material.transparent = true; grid.material.opacity = .32; g.add(grid);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(7, 64), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x19e3b1, transparent: true, opacity: .35, depthWrite: false }));
+  disc.rotation.x = -Math.PI / 2; disc.position.y = .01; g.add(disc);
+  const ringM = new THREE.MeshBasicMaterial({ color: 0x19e3b1, transparent: true, opacity: .5, side: THREE.DoubleSide });
+  const rings = [];
+  [2.2, 3.4, 5].forEach((r, i) => { const m = new THREE.Mesh(new THREE.RingGeometry(r, r + .025, 96), ringM); m.rotation.x = -Math.PI / 2; m.position.y = .02 + i * .002; g.add(m); rings.push(m); });
+  const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(10, 1), new THREE.MeshBasicMaterial({ color: 0x19e3b1, wireframe: true, transparent: true, opacity: .22 }));
+  ball.position.set(0, 12, -55); g.add(ball);
+  const ball2 = new THREE.Mesh(new THREE.IcosahedronGeometry(9.4, 1), new THREE.MeshBasicMaterial({ color: 0x0a2a3a, transparent: true, opacity: .55 }));
+  ball.add(ball2);
+  const halo = glowSprite(0x19e3b1, 60, .25); halo.position.copy(ball.position); g.add(halo);
+  const n = 1100, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { pos[i * 3] = rand(-70, 70); pos[i * 3 + 1] = rand(.2, 30); pos[i * 3 + 2] = rand(-70, 70); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x8ff5dc, size: .16, map: dotTex, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  g.add(pts);
+  scene3.add(g);
+  ENV.hub = { group: g, update(dt, t) { ball.rotation.y += dt * .08; ball.rotation.x += dt * .02; pts.rotation.y += dt * .006; rings.forEach((r, i) => r.scale.setScalar(1 + Math.sin(t * .8 + i) * .02)); } };
+}
+
+/* ---------------------------- ESTADIO ---------------------------- */
+function pitchTexture() {
+  const TW = 86, TL = 121, ppm = 14; const cv = mkCanvas(TW * ppm, TL * ppm), c = cv.getContext('2d');
+  const X = x => (x + TW / 2) * ppm, Z = z => (z + TL / 2) * ppm;
+  const n = 22, sl = TL / n;
+  for (let i = 0; i < n; i++) { c.fillStyle = i % 2 ? '#357f39' : '#2c7032'; c.fillRect(0, i * sl * ppm, cv.width, sl * ppm + 1); }
+  for (let i = 0; i < 60000; i++) { c.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.035)'; c.fillRect(Math.random() * cv.width, Math.random() * cv.height, rand(1, 3), rand(1, 3)); }
+  const wear = (x, z, r, a) => { const g = c.createRadialGradient(X(x), Z(z), 0, X(x), Z(z), r * ppm); g.addColorStop(0, `rgba(120,100,60,${a})`); g.addColorStop(1, 'rgba(120,100,60,0)'); c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height); };
+  wear(0, -50, 6, .35); wear(0, 50, 6, .35); wear(0, 0, 8, .12); wear(0, -41, 3, .2); wear(0, 41, 3, .2);
+  c.strokeStyle = 'rgba(255,255,255,.93)'; c.fillStyle = 'rgba(255,255,255,.93)'; c.lineWidth = .14 * ppm + .5;
+  c.strokeRect(X(-34), Z(-52.5), 68 * ppm, 105 * ppm);
+  c.beginPath(); c.moveTo(X(-34), Z(0)); c.lineTo(X(34), Z(0)); c.stroke();
+  c.beginPath(); c.arc(X(0), Z(0), 9.15 * ppm, 0, Math.PI * 2); c.stroke();
+  c.beginPath(); c.arc(X(0), Z(0), .25 * ppm, 0, Math.PI * 2); c.fill();
+  for (const s of [-1, 1]) {
+    const gl = 52.5 * s;
+    const pz = s < 0 ? gl : gl - 16.5; c.strokeRect(X(-20.16), Z(pz), 40.32 * ppm, 16.5 * ppm);
+    const gz = s < 0 ? gl : gl - 5.5; c.strokeRect(X(-9.16), Z(gz), 18.32 * ppm, 5.5 * ppm);
+    const spot = gl - s * 11; c.beginPath(); c.arc(X(0), Z(spot), .22 * ppm, 0, Math.PI * 2); c.fill();
+    c.save(); c.beginPath(); if (s < 0) c.rect(0, Z(-36), cv.width, cv.height); else c.rect(0, 0, cv.width, Z(36)); c.clip();
+    c.beginPath(); c.arc(X(0), Z(spot), 9.15 * ppm, 0, Math.PI * 2); c.stroke(); c.restore();
+  }
+  [[-34, -52.5, 0], [34, -52.5, .5], [34, 52.5, 1], [-34, 52.5, 1.5]].forEach(([x, z, a]) => { c.beginPath(); c.arc(X(x), Z(z), 1 * ppm, a * Math.PI, (a + .5) * Math.PI); c.stroke(); });
+  return canvasTex(cv);
+}
+function crowdTexture(full) {
+  const W = 512, H = 1024, rows = 40, cols = 24, rh = H / rows, cw = W / cols; const cv = mkCanvas(W, H), c = cv.getContext('2d');
+  c.fillStyle = '#161d26'; c.fillRect(0, 0, W, H);
+  const home = ['#19e3b1', '#19e3b1', '#ffffff', '#0b2a45', '#19e3b1', '#e8fff8'], away = ['#d63447', '#ffffff', '#b01e30'], misc = ['#f4d35e', '#3a86ff', '#222222', '#8d99ae', '#ff8a3d'];
+  const skin = ['#f1c7a5', '#d9a47f', '#a86f4c', '#6d4430', '#e8b894'];
+  for (let r = 0; r < rows; r++) {
+    const y = r * rh; c.fillStyle = r % 2 ? '#1b232e' : '#18202a'; c.fillRect(0, y, W, rh); c.fillStyle = '#0d1218'; c.fillRect(0, y + rh - 3, W, 3);
+    for (let k = 0; k < cols; k++) {
+      const x = k * cw;
+      const seat = ((Math.floor(k / 6) + Math.floor(r / 8)) % 5 === 0) ? '#e6f3f0' : '#0f7466';
+      c.fillStyle = seat; rr(c, x + 3, y + rh * .5, cw - 6, rh * .42, 3); c.fill();
+      if (full && Math.random() < .88) {
+        const roll = Math.random(); const pal = roll < .72 ? home : roll < .86 ? away : misc; const shirt = pick(pal);
+        const cx = x + cw / 2 + rand(-2, 2), by = y + rh * .62;
+        c.fillStyle = shirt; rr(c, cx - 7, by - 9, 14, 13, 5); c.fill();
+        if (Math.random() < .22) { c.strokeStyle = pick(skin); c.lineWidth = 3; c.beginPath(); c.moveTo(cx - 6, by - 7); c.lineTo(cx - 9, by - 17); c.moveTo(cx + 6, by - 7); c.lineTo(cx + 9, by - 17); c.stroke(); }
+        c.fillStyle = pick(skin); circle(c, cx, by - 13, 4.6); c.fill();
+        if (Math.random() < .5) { c.fillStyle = pick(['#2b1b12', '#111', '#5a3a1a', '#c9a15a']); c.beginPath(); c.arc(cx, by - 14.5, 4.8, Math.PI, 0); c.fill(); }
+      }
+    }
+  }
+  const t = canvasTex(cv); t.wrapS = THREE.RepeatWrapping; t.userData.shared = true; return t;
+}
+function ledTexture() {
+  const cv = mkCanvas(2048, 64), c = cv.getContext('2d');
+  c.fillStyle = '#04080e'; c.fillRect(0, 0, 2048, 64);
+  const segs = [['PIKI RECOVERY', '#19e3b1'], ['EL TRABAJO INVISIBLE', '#ffffff'], ['RECUPERÁ · HIDRATÁ · RESPIRÁ', '#ffd93d'], ['PIKI FC', '#19e3b1']];
+  let x = 20; const segW = 2048 / segs.length;
+  segs.forEach(([s, col], i) => { txt(c, s, i * segW + segW / 2, 44, { size: 34, weight: 900, color: col, align: 'center', ls: 3 }); c.fillStyle = '#19e3b1'; circle(c, (i + 1) * segW, 32, 5); c.fill(); });
+  for (let y = 0; y < 64; y += 3) { c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(0, y, 2048, 1); }
+  const t = canvasTex(cv); t.wrapS = THREE.RepeatWrapping; t.userData.shared = true; return t;
+}
+function netTexture() {
+  const cv = mkCanvas(64, 64), c = cv.getContext('2d'); c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 3;
+  c.strokeRect(0, 0, 64, 64); const t = canvasTex(cv, true); t.userData.shared = true; return t;
+}
+function ballTexture() {
+  const cv = mkCanvas(512, 256), c = cv.getContext('2d'); c.fillStyle = '#f4f6f8'; c.fillRect(0, 0, 512, 256);
+  c.fillStyle = '#10151c';
+  for (let i = 0; i < 14; i++) { const x = (i % 7) * 76 + (Math.floor(i / 7) % 2) * 38 + 20, y = Math.floor(i / 7) * 128 + 64; c.beginPath(); for (let k = 0; k < 5; k++) { const a = k * Math.PI * 2 / 5; c.lineTo(x + Math.cos(a) * 22, y + Math.sin(a) * 26); } c.fill(); }
+  return canvasTex(cv);
+}
+function superellipse(a, b, n, N) {
+  const pts = [];
+  for (let i = 0; i < N; i++) { const t = i / N * Math.PI * 2, co = Math.cos(t), si = Math.sin(t); pts.push({ x: a * Math.sign(co) * Math.pow(Math.abs(co), 2 / n), z: b * Math.sign(si) * Math.pow(Math.abs(si), 2 / n) }); }
+  const nr = pts.map((p, i) => { const A = pts[(i - 1 + N) % N], B = pts[(i + 1) % N]; const tx = B.x - A.x, tz = B.z - A.z, l = Math.hypot(tx, tz) || 1; return { x: tz / l, z: -tx / l }; });
+  return { pts, nr };
+}
+function ringStrip(path, profile, material, uLen = 12) {
+  const { pts, nr } = path, N = pts.length, P = profile.length; const pos = [], uv = [], idx = [];
+  const acc = [0]; for (let i = 1; i <= N; i++) acc[i] = acc[i - 1] + Math.hypot(pts[i % N].x - pts[i - 1].x, pts[i % N].z - pts[i - 1].z);
+  const reps = Math.max(1, Math.round(acc[N] / uLen));
+  for (let i = 0; i <= N; i++) {
+    const p = pts[i % N], n = nr[i % N], u = acc[i] / acc[N] * reps;
+    for (let j = 0; j < P; j++) { const pr = profile[j]; pos.push(p.x + n.x * pr.o, pr.h, p.z + n.z * pr.o); uv.push(u, pr.v !== undefined ? pr.v : j / (P - 1)); }
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < P - 1; j++) { const a = i * P + j, b = (i + 1) * P + j; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+  return new THREE.Mesh(geo, material);
+}
+function makePlayer(jersey, shorts, skinC, socks) {
+  const g = new THREE.Group(); const mJ = std(jersey), mS = std(shorts), mK = std(skinC), mSo = std(socks || jersey), mB = std(0x111111);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.17, .38, 4, 10), mJ); torso.position.y = 1.24; torso.scale.set(1.12, 1, .66); g.add(torso);
+  const sh = new THREE.Mesh(new THREE.CylinderGeometry(.2, .19, .24, 12), mS); sh.position.y = .9; g.add(sh);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.11, 14, 10), mK); head.position.y = 1.67; g.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(.113, 14, 8, 0, Math.PI * 2, 0, Math.PI * .5), std(pick([0x1b120c, 0x3b2616, 0x0d0d0d, 0x8a6a3a]))); hair.position.y = 1.68; g.add(hair);
+  const legs = [], arms = [];
+  for (const s of [-1, 1]) {
+    const hip = new THREE.Group(); hip.position.set(s * .1, .86, 0); g.add(hip);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.068, .6, 4, 8), mK); leg.position.y = -.38; hip.add(leg);
+    const sock = new THREE.Mesh(new THREE.CylinderGeometry(.072, .066, .34, 8), mSo); sock.position.y = -.6; hip.add(sock);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(.1, .08, .26), mB); boot.position.set(0, -.82, .05); hip.add(boot);
+    legs.push(hip);
+    const sho = new THREE.Group(); sho.position.set(s * .25, 1.44, 0); g.add(sho);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.048, .48, 4, 8), mK); arm.position.y = -.3; sho.add(arm);
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(.065, .06, .18, 8), mJ); sleeve.position.y = -.07; sho.add(sleeve);
+    arms.push(sho);
+  }
+  return { g, legs, arms, phase: Math.random() * 6 };
+}
+function buildStadium() {
+  const g = new THREE.Group(); const upd = [];
+  // Suelo y césped
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), std(0x1c2a1f, { roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.position.y = -.02; g.add(ground);
+  const pitch = new THREE.Mesh(new THREE.PlaneGeometry(86, 121), std(0xffffff, { map: pitchTexture(), roughness: .95 })); pitch.rotation.x = -Math.PI / 2; g.add(pitch);
+  const surround = new THREE.Mesh(new THREE.PlaneGeometry(92, 128), std(0x255f2b, { roughness: 1 })); surround.rotation.x = -Math.PI / 2; surround.position.y = -.01; g.add(surround);
+
+  // Tribunas (anillo continuo con público)
+  const path = superellipse(41, 59, 10, 260);
+  const crowdFull = crowdTexture(true), crowdEmpty = crowdTexture(false);
+  const standMat = std(0xffffff, { map: crowdFull, roughness: 1, side: THREE.DoubleSide });
+  g.add(ringStrip(path, [{ o: 0, h: 1.4, v: 0 }, { o: 26, h: 22, v: 1 }], standMat, 12));
+  g.add(ringStrip(path, [{ o: 0, h: 0 }, { o: 0, h: 1.4 }], std(0x0f1822, { side: THREE.DoubleSide })));
+  g.add(ringStrip(path, [{ o: 26, h: 21.5 }, { o: 27, h: 22.5 }, { o: 27.5, h: 28 }, { o: 27.5, h: 0 }], std(0x1a222d, { side: THREE.DoubleSide, roughness: .7, metalness: .3 })));
+  g.add(ringStrip(path, [{ o: 27.5, h: 28 }, { o: 9, h: 30.5 }], std(0x2a323c, { side: THREE.DoubleSide, roughness: .5, metalness: .4 })));
+  const roofLights = ringStrip(path, [{ o: 11, h: 30.1 }, { o: 12.2, h: 30.0 }], new THREE.MeshBasicMaterial({ color: 0xfff6e0, side: THREE.DoubleSide, fog: false }));
+  g.add(roofLights);
+  // barandas de vomitorios (bocas de acceso) como detalle
+  const vomMat = std(0x0a0f14);
+  for (let i = 0; i < 16; i++) {
+    const k = Math.floor(i / 16 * path.pts.length), p = path.pts[k], n = path.nr[k];
+    const m = new THREE.Mesh(new THREE.BoxGeometry(3, 2.2, .3), vomMat); m.position.set(p.x + n.x * 11, 10.4, p.z + n.z * 11); m.lookAt(p.x + n.x * 30, 10.4, p.z + n.z * 30); m.rotateX(-(Math.PI / 2 + .67)); g.add(m);
+  }
+
+  // Carteles LED alrededor del campo
+  const led = ledTexture();
+  const ledMat = new THREE.MeshBasicMaterial({ map: led, fog: true });
+  const board = (len, x, z, ry) => {
+    const geo = new THREE.PlaneGeometry(len, .9); const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * len / 34); uv.needsUpdate = true;
+    const m = new THREE.Mesh(geo, ledMat); m.position.set(x, .55, z); m.rotation.y = ry; g.add(m);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(len, 1, .25), std(0x0a0f14)); back.position.set(x - Math.sin(ry) * .14, .5, z - Math.cos(ry) * .14); back.rotation.y = ry; g.add(back);
+  };
+  board(100, 37, 0, -Math.PI / 2); board(100, -37, 0, Math.PI / 2); board(56, 0, -56.5, 0); board(56, 0, 56.5, Math.PI);
+  upd.push(dt => { led.offset.x -= dt * .045; });
+
+  // Arcos con red
+  const netT = netTexture();
+  const postM = std(0xffffff, { roughness: .3 });
+  const makeGoal = (z, dir) => {
+    const gg = new THREE.Group(); gg.position.z = z;
+    const cyl = (r, h) => new THREE.CylinderGeometry(r, r, h, 12);
+    for (const s of [-1, 1]) { const p = new THREE.Mesh(cyl(.06, 2.44), postM); p.position.set(s * 3.66, 1.22, 0); gg.add(p); }
+    const bar = new THREE.Mesh(cyl(.06, 7.44), postM); bar.rotation.z = Math.PI / 2; bar.position.y = 2.44; gg.add(bar);
+    const D1 = 1.4 * dir, D2 = 2.2 * dir, Y2 = 2.2;
+    const quads = [
+      [[-3.66, 2.44, 0], [3.66, 2.44, 0], [3.66, Y2, D1], [-3.66, Y2, D1]],
+      [[-3.66, Y2, D1], [3.66, Y2, D1], [3.66, 0, D2], [-3.66, 0, D2]],
+    ];
+    const pos = [], uv = [];
+    const pushQuad = (q, uvq) => { [0, 1, 2, 0, 2, 3].forEach(i => { pos.push(...q[i]); uv.push(...uvq[i]); }); };
+    quads.forEach(q => { const L = Math.hypot(q[3][1] - q[0][1], q[3][2] - q[0][2]); pushQuad(q, [[0, 0], [7.32 / .14, 0], [7.32 / .14, L / .14], [0, L / .14]]); });
+    for (const s of [-1, 1]) {
+      const x = s * 3.66, pts = [[x, 0, 0], [x, 2.44, 0], [x, Y2, D1], [x, 0, D2]]; const uvp = pts.map(p => [Math.abs(p[2]) / .14, p[1] / .14]);
+      [[0, 1, 2], [0, 2, 3]].forEach(t => t.forEach(i => { pos.push(...pts[i]); uv.push(...uvp[i]); }));
+    }
+    const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); ng.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    const net = new THREE.Mesh(ng, new THREE.MeshBasicMaterial({ map: netT, transparent: true, opacity: .75, side: THREE.DoubleSide, depthWrite: false, alphaTest: .05 })); gg.add(net);
+    g.add(gg);
+  };
+  makeGoal(-52.5, -1); makeGoal(52.5, 1);
+
+  // Banderines de córner
+  const flags = [];
+  [[-34, -52.5], [34, -52.5], [34, 52.5], [-34, 52.5]].forEach(([x, z]) => {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, 1.5, 6), std(0xffffff)); pole.position.set(x, .75, z); g.add(pole);
+    const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(.42, -.14); sh.lineTo(0, -.3);
+    const fl = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ color: 0xffd93d, side: THREE.DoubleSide, emissive: 0x332200 })); fl.position.set(x, 1.5, z); g.add(fl); flags.push(fl);
+  });
+  upd.push((dt, t) => flags.forEach((f, i) => { f.rotation.y = Math.sin(t * 2.2 + i) * .5 + .6; }));
+
+  // Torres de iluminación
+  const floodGlows = [], floodPanels = [];
+  const lampCv = mkCanvas(256, 128), lc = lampCv.getContext('2d'); lc.fillStyle = '#1a1f26'; lc.fillRect(0, 0, 256, 128);
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 8; k++) { const gr = lc.createRadialGradient(16 + k * 32, 16 + r * 32, 0, 16 + k * 32, 16 + r * 32, 14); gr.addColorStop(0, '#ffffff'); gr.addColorStop(.6, '#fff4d6'); gr.addColorStop(1, '#8a8a7a'); lc.fillStyle = gr; circle(lc, 16 + k * 32, 16 + r * 32, 13); lc.fill(); }
+  const lampTex = canvasTex(lampCv);
+  [[-64, -82], [64, -82], [64, 82], [-64, 82]].forEach(([x, z]) => {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(.5, .9, 50, 10), std(0x39424e, { metalness: .5, roughness: .5 })); pole.position.set(x, 25, z); g.add(pole);
+    const panelM = new THREE.MeshBasicMaterial({ map: lampTex, fog: false, color: 0xffffff });
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(12, 6), panelM); panel.position.set(x * .97, 52, z * .97); panel.lookAt(0, 0, 0); g.add(panel); floodPanels.push(panelM);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(12.4, 6.4, .6), std(0x222831)); back.position.copy(panel.position); back.quaternion.copy(panel.quaternion); back.translateZ(-.35); g.add(back);
+    const glow = glowSprite(0xfff3d6, 46, 1); glow.position.copy(panel.position); glow.position.multiplyScalar(.985); g.add(glow); floodGlows.push(glow);
+  });
+
+  // Marcadores
+  const sbCv = mkCanvas(1024, 360), sbc = sbCv.getContext('2d'), sbTex = canvasTex(sbCv);
+  const drawBoard = (mode) => {
+    const W = 1024, H = 360; sbc.fillStyle = '#03070c'; sbc.fillRect(0, 0, W, H);
+    sbc.strokeStyle = '#19e3b1'; sbc.lineWidth = 6; sbc.strokeRect(8, 8, W - 16, H - 16);
+    if (mode === 'match') {
+      const m = G.match || newMatch();
+      txt(sbc, 'FINAL', W / 2, 70, { size: 44, weight: 900, color: '#ffd93d', align: 'center', ls: 10 });
+      txt(sbc, 'PIKI FC', 210, 190, { size: 58, weight: 900, color: '#19e3b1', align: 'center' });
+      txt(sbc, 'VISITANTE', 814, 190, { size: 58, weight: 900, color: '#ff6b7a', align: 'center' });
+      txt(sbc, `${m.goalsHome}  –  ${m.goalsAway}`, W / 2, 215, { size: 130, weight: 900, color: '#fff', align: 'center' });
+      txt(sbc, `90+${m.minutes - 90}'  ·  El esfuerzo terminó. La recuperación empieza.`, W / 2, 310, { size: 30, weight: 700, color: '#cfe', align: 'center' });
+    } else if (mode === 'calm') {
+      txt(sbc, 'VUELTA A LA CALMA', W / 2, 150, { size: 72, weight: 900, color: '#b388ff', align: 'center' });
+      txt(sbc, 'Inhalá · Exhalá · Soltá', W / 2, 250, { size: 44, weight: 600, color: '#dfe', align: 'center' });
+    } else if (mode === 'done') {
+      txt(sbc, 'RECUPERACIÓN', W / 2, 150, { size: 86, weight: 900, color: '#19e3b1', align: 'center' });
+      txt(sbc, 'COMPLETADA', W / 2, 250, { size: 86, weight: 900, color: '#ffffff', align: 'center' });
+      txt(sbc, 'El trabajo invisible también es entrenamiento', W / 2, 318, { size: 28, weight: 600, color: '#ffd93d', align: 'center' });
+    } else {
+      txt(sbc, 'PIKI RECOVERY', W / 2, 200, { size: 96, weight: 900, color: '#19e3b1', align: 'center' });
+    }
+    for (let y = 0; y < H; y += 4) { sbc.fillStyle = 'rgba(0,0,0,.18)'; sbc.fillRect(0, y, W, 1.5); }
+    sbTex.needsUpdate = true;
+  };
+  const sbM = new THREE.MeshBasicMaterial({ map: sbTex, fog: false });
+  const sb = new THREE.Mesh(new THREE.PlaneGeometry(22, 7.7), sbM); sb.position.set(0, 25.5, -66); g.add(sb);
+  const sbBack = new THREE.Mesh(new THREE.BoxGeometry(23, 8.6, 1), std(0x10151c)); sbBack.position.set(0, 25.5, -66.6); g.add(sbBack);
+  const sbGlow = glowSprite(0x19e3b1, 38, .25); sbGlow.position.set(0, 25.5, -65); g.add(sbGlow);
+  const logoCv = mkCanvas(1024, 360), lgc = logoCv.getContext('2d'); lgc.fillStyle = '#03070c'; lgc.fillRect(0, 0, 1024, 360);
+  iconBall(lgc, 190, 180, 110); txt(lgc, 'PIKI', 360, 170, { size: 120, weight: 900, color: '#19e3b1' }); txt(lgc, 'RECOVERY', 364, 270, { size: 72, weight: 800, color: '#fff', ls: 8 });
+  const sb2 = new THREE.Mesh(new THREE.PlaneGeometry(22, 7.7), new THREE.MeshBasicMaterial({ map: canvasTex(logoCv), fog: false })); sb2.position.set(0, 25.5, 66); sb2.rotation.y = Math.PI; g.add(sb2);
+  const sb2Back = sbBack.clone(); sb2Back.position.set(0, 25.5, 66.6); g.add(sb2Back);
+
+  // Bancos de suplentes
+  for (const z of [-9, 9]) {
+    const d = new THREE.Group(); d.position.set(-39.2, 0, z);
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(1.6, .1, 7), new THREE.MeshStandardMaterial({ color: 0x9fdcff, transparent: true, opacity: .35, roughness: .1 })); shell.position.y = 2.1; d.add(shell);
+    const backW = new THREE.Mesh(new THREE.BoxGeometry(.1, 2.1, 7), std(0x0f1822)); backW.position.set(-.8, 1.05, 0); d.add(backW);
+    for (let i = 0; i < 8; i++) { const seat = new THREE.Mesh(new THREE.BoxGeometry(.5, .5, .6), std(0x19e3b1)); seat.position.set(-.4, .45, -3 + i * .85); d.add(seat); }
+    g.add(d);
+  }
+  // Túnel de vestuarios
+  const tunnel = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 6), std(0x06090d)); tunnel.position.set(-41.5, 1.5, 0); g.add(tunnel);
+  const tunnelGlow = glowSprite(0xffe7b0, 6, .5); tunnelGlow.position.set(-40.4, 1.6, 0); g.add(tunnelGlow);
+
+  // Pelota y botellas cerca del jugador
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(.11, 24, 16), std(0xffffff, { map: ballTexture(), roughness: .5 })); ball.position.set(-2.3, .11, 4.6); g.add(ball);
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.Group(); b.position.set(-1.4 + i * .16, 0, 4.2 + (i % 2) * .1);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, .22, 12), std(0x19e3b1, { roughness: .3 })); body.position.y = .11; b.add(body);
+    const capM = new THREE.Mesh(new THREE.CylinderGeometry(.022, .03, .05, 10), std(0xffffff)); capM.position.y = .245; b.add(capM);
+    if (i === 2) { b.rotation.z = Math.PI / 2; b.position.y = .04; }
+    g.add(b);
+  }
+  const towel = new THREE.Mesh(new THREE.BoxGeometry(.5, .02, .3), std(0xeeeeee)); towel.position.set(-1.0, .01, 4.6); towel.rotation.y = .4; g.add(towel);
+
+  // Jugadores que se retiran hacia el túnel
+  const players = [];
+  const skins = [0xf1c7a5, 0xd9a47f, 0xa86f4c, 0x6d4430];
+  const team = (n, j, s, so) => { for (let i = 0; i < n; i++) players.push(makePlayer(j, s, pick(skins), so)); };
+  team(6, 0x19e3b1, 0xffffff, 0x19e3b1); team(5, 0xd63447, 0x1a1a1a, 0xd63447); team(1, 0x111111, 0x111111, 0x111111);
+  const pgroup = new THREE.Group(); g.add(pgroup);
+  const resetPlayers = () => players.forEach(p => {
+    p.g.visible = true; p.g.position.set(rand(-28, 25), 0, rand(-40, 40)); if (Math.hypot(p.g.position.x, p.g.position.z - 6) < 8) p.g.position.x -= 12;
+    p.speed = rand(.9, 1.5); p.idle = rand(0, 5); pgroup.add(p.g);
+  });
+  resetPlayers();
+  upd.push((dt) => {
+    if (!pgroup.visible) return;
+    players.forEach(p => {
+      if (!p.g.visible) return;
+      if (p.idle > 0) { p.idle -= dt; p.legs.forEach(l => l.rotation.x *= .9); p.g.lookAt(p.g.position.x - 1, 0, p.g.position.z); return; }
+      const tx = -40.5, tz = 0, dx = tx - p.g.position.x, dz = tz - p.g.position.z, d = Math.hypot(dx, dz);
+      if (d < 1.2) { p.g.visible = false; return; }
+      p.g.position.x += dx / d * p.speed * dt; p.g.position.z += dz / d * p.speed * dt; p.g.rotation.y = Math.atan2(dx, dz);
+      p.phase += dt * p.speed * 5.5; const s = Math.sin(p.phase) * .45;
+      p.legs[0].rotation.x = s; p.legs[1].rotation.x = -s; p.arms[0].rotation.x = -s * .8; p.arms[1].rotation.x = s * .8;
+    });
+  });
+
+  scene3.add(g);
+  ENV.stadium = {
+    group: g, sbDraw: drawBoard,
+    setFlood(v) { floodGlows.forEach(s => s.material.opacity = v); floodPanels.forEach(m => m.color.setScalar(.25 + .75 * clamp(v, 0, 1))); roofLights.material.color.setScalar(.2 + .8 * clamp(v, 0, 1)); sbGlow.material.opacity = .08 + .2 * v; },
+    mode(m) {
+      standMat.map = m === 'match' ? crowdFull : crowdEmpty; standMat.needsUpdate = true;
+      pgroup.visible = m === 'match'; if (m === 'match') resetPlayers();
+      drawBoard(m === 'match' ? 'match' : m === 'calm' ? 'calm' : m === 'done' ? 'done' : 'logo');
+    },
+    update(dt, t) { upd.forEach(f => f(dt, t)); },
+  };
+}
+
+/* ---------------------------- VESTUARIO ---------------------------- */
+function tileTexture(base, grout, tiles = 8, px = 512) {
+  const cv = mkCanvas(px, px), c = cv.getContext('2d'); const s = px / tiles; c.fillStyle = grout; c.fillRect(0, 0, px, px);
+  for (let i = 0; i < tiles; i++) for (let j = 0; j < tiles; j++) { const v = rand(-8, 8); c.fillStyle = shade(base, v); c.fillRect(i * s + 2, j * s + 2, s - 4, s - 4); }
+  return canvasTex(cv, true);
+}
+function shade(hex, v) { const n = parseInt(hex.slice(1), 16); const f = x => clamp(Math.round(x + v), 0, 255); return `rgb(${f(n >> 16 & 255)},${f(n >> 8 & 255)},${f(n & 255)})`; }
+function jerseyTexture(num) {
+  const cv = mkCanvas(256, 256), c = cv.getContext('2d');
+  c.beginPath(); c.moveTo(78, 20); c.lineTo(20, 60); c.lineTo(42, 110); c.lineTo(62, 100); c.lineTo(62, 240); c.lineTo(194, 240); c.lineTo(194, 100); c.lineTo(214, 110); c.lineTo(236, 60); c.lineTo(178, 20); c.quadraticCurveTo(128, 50, 78, 20); c.closePath();
+  c.fillStyle = '#19e3b1'; c.fill(); c.strokeStyle = '#0b5f50'; c.lineWidth = 3; c.stroke();
+  c.fillStyle = '#ffffff'; c.fillRect(62, 60, 132, 10);
+  txt(c, String(num), 128, 190, { size: 96, weight: 900, color: '#ffffff', align: 'center' });
+  txt(c, 'PIKI', 128, 94, { size: 22, weight: 900, color: '#04131f', align: 'center', ls: 3 });
+  return canvasTex(cv);
+}
+function buildLocker() {
+  const g = new THREE.Group(); const W = 16, D = 16, H = 4.4;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), std(0xffffff, { map: tileTexture('#3b4a58', '#1f2830'), roughness: .45, metalness: .1 }));
+  floor.material.map.repeat.set(4, 4); floor.rotation.x = -Math.PI / 2; g.add(floor);
+  const wallCv = mkCanvas(1024, 512), wc = wallCv.getContext('2d');
+  const tile = (y0, y1, base) => { for (let y = y0; y < y1; y += 32) for (let x = 0; x < 1024; x += 64) { wc.fillStyle = shade(base, rand(-6, 6)); wc.fillRect(x + 1.5, y + 1.5, 61, 29); } };
+  wc.fillStyle = '#9aa7b3'; wc.fillRect(0, 0, 1024, 512); tile(0, 240, '#e8eef2'); wc.fillStyle = '#19e3b1'; wc.fillRect(0, 240, 1024, 36); tile(276, 512, '#0f5a52');
+  txt(wc, 'PIKI FC · VESTUARIO LOCAL', 512, 268, { size: 26, weight: 900, color: '#04131f', align: 'center', ls: 6 });
+  const wallTex = canvasTex(wallCv, true); wallTex.repeat.set(2, 1);
+  const wallM = std(0xffffff, { map: wallTex, roughness: .5, side: THREE.DoubleSide });
+  [[0, H / 2, -D / 2, 0], [0, H / 2, D / 2, Math.PI], [-W / 2, H / 2, 0, Math.PI / 2], [W / 2, H / 2, 0, -Math.PI / 2]].forEach(([x, y, z, r]) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), wallM); m.position.set(x, y, z); m.rotation.y = r; g.add(m); });
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), std(0x2a3038)); ceil.rotation.x = Math.PI / 2; ceil.position.y = H; g.add(ceil);
+  const lightM = new THREE.MeshBasicMaterial({ color: 0xfff8ea });
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j += 2) { const l = new THREE.Mesh(new THREE.PlaneGeometry(1.8, .32), lightM); l.rotation.x = Math.PI / 2; l.position.set(i * 4.5, H - .01, j * 3); g.add(l); }
+  const p1 = new THREE.PointLight(0xffe9c9, 6, 16, 1.6); p1.position.set(0, 3.8, -3); g.add(p1);
+  const p2 = new THREE.PointLight(0xffe9c9, 4, 16, 1.6); p2.position.set(0, 3.8, 4); g.add(p2);
+  // Taquillas (lockers) con camisetas numeradas
+  const wood = std(0x6b4a2f, { roughness: .7 }), woodDark = std(0x4a3220), bench = std(0x7a5636, { roughness: .6 }), boot = std(0x101010);
+  let num = 1;
+  const rows = [
+    { n: 9, place: (i) => ({ x: -7.2 + i * 1.8, z: -D / 2 + .3, ry: 0 }) },
+    { n: 7, place: (i) => ({ x: -W / 2 + .3, z: -5.4 + i * 1.8, ry: Math.PI / 2 }) },
+    { n: 7, place: (i) => ({ x: W / 2 - .3, z: -5.4 + i * 1.8, ry: -Math.PI / 2 }) },
+  ];
+  rows.forEach(row => {
+    for (let i = 0; i < row.n; i++) {
+      const { x, z, ry } = row.place(i); const L = new THREE.Group(); L.position.set(x, 0, z); L.rotation.y = ry;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(1.7, 2.4, .06), wood); back.position.set(0, 1.2, 0); L.add(back);
+      for (const s of [-1, 1]) { const side = new THREE.Mesh(new THREE.BoxGeometry(.05, 2.4, .55), woodDark); side.position.set(s * .85, 1.2, .27); L.add(side); }
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.7, .05, .55), woodDark); shelf.position.set(0, 2.0, .27); L.add(shelf);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.7, .06, .55), woodDark); top.position.set(0, 2.4, .27); L.add(top);
+      const jersey = new THREE.Mesh(new THREE.PlaneGeometry(.75, .75), new THREE.MeshStandardMaterial({ map: jerseyTexture(num++), transparent: true, alphaTest: .1, side: THREE.DoubleSide }));
+      jersey.position.set(0, 1.45, .06); jersey.rotation.x = -.04; L.add(jersey);
+      for (const s of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(.1, .08, .27), boot); b.position.set(s * .08, .5, .2); L.add(b); }
+      const bag = new THREE.Mesh(new THREE.CapsuleGeometry(.12, .35, 4, 8), std(pick([0x19e3b1, 0x0b2a45, 0x2c2c2c]))); bag.rotation.z = Math.PI / 2; bag.position.set(0, 2.16, .25); L.add(bag);
+      const b2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, .08, .45), bench); b2.position.set(0, .46, .75); L.add(b2);
+      for (const s of [-1, 1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(.06, .44, .38), woodDark); leg.position.set(s * .75, .22, .75); L.add(leg); }
+      g.add(L);
+    }
+  });
+  // Escudo del club
+  const crestCv = mkCanvas(512, 512), cc = crestCv.getContext('2d');
+  cc.beginPath(); cc.moveTo(256, 20); cc.lineTo(470, 80); cc.quadraticCurveTo(470, 360, 256, 490); cc.quadraticCurveTo(42, 360, 42, 80); cc.closePath();
+  cc.fillStyle = '#0b2a45'; cc.fill(); cc.lineWidth = 16; cc.strokeStyle = '#19e3b1'; cc.stroke();
+  iconBall(cc, 256, 250, 90); txt(cc, 'PIKI FC', 256, 130, { size: 64, weight: 900, color: '#ffffff', align: 'center' }); txt(cc, 'EST. 2024', 256, 420, { size: 28, weight: 700, color: '#19e3b1', align: 'center', ls: 6 });
+  const crest = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), new THREE.MeshStandardMaterial({ map: canvasTex(crestCv), transparent: true, alphaTest: .1 })); crest.position.set(-5.4, 3.3, -D / 2 + .05); g.add(crest);
+  // Pizarra táctica (detrás del jugador)
+  const tb = mkCanvas(768, 480), tc = tb.getContext('2d'); tc.fillStyle = '#f7f8fa'; tc.fillRect(0, 0, 768, 480);
+  tc.strokeStyle = '#2d8a44'; tc.lineWidth = 4; tc.strokeRect(40, 40, 688, 400); tc.beginPath(); tc.moveTo(384, 40); tc.lineTo(384, 440); tc.stroke(); tc.beginPath(); tc.arc(384, 240, 60, 0, Math.PI * 2); tc.stroke();
+  tc.strokeRect(40, 150, 90, 180); tc.strokeRect(638, 150, 90, 180);
+  [[150, 120], [150, 360], [250, 240], [300, 150], [300, 330], [450, 240]].forEach(([x, y]) => { tc.strokeStyle = '#1b5fc1'; tc.lineWidth = 6; circle(tc, x, y, 16); tc.stroke(); });
+  [[520, 170], [520, 310], [600, 240]].forEach(([x, y]) => iconCross(tc, x, y, 14, '#d63447', 6));
+  tc.strokeStyle = '#111'; tc.lineWidth = 4; tc.setLineDash([12, 10]); tc.beginPath(); tc.moveTo(300, 150); tc.quadraticCurveTo(420, 90, 560, 200); tc.stroke(); tc.setLineDash([]);
+  txt(tc, 'RECUPERAR = RENDIR', 384, 30, { size: 26, weight: 900, color: '#0b2a45', align: 'center' });
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.75), std(0xffffff, { map: canvasTex(tb), roughness: .3 })); board.position.set(2.5, 1.9, D / 2 - .05); board.rotation.y = Math.PI; g.add(board);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.3, .1), std(0x1b2530)); door.position.set(-3, 1.15, D / 2 - .05); g.add(door);
+  const exit = mkCanvas(256, 96), ec = exit.getContext('2d'); ec.fillStyle = '#0a7f3f'; ec.fillRect(0, 0, 256, 96); txt(ec, 'A LA CANCHA →', 128, 60, { size: 30, weight: 900, color: '#fff', align: 'center' });
+  const ex = new THREE.Mesh(new THREE.PlaneGeometry(.8, .3), new THREE.MeshBasicMaterial({ map: canvasTex(exit) })); ex.position.set(-3, 2.55, D / 2 - .06); ex.rotation.y = Math.PI; g.add(ex);
+  // Mesa de nutrición
+  const table = new THREE.Mesh(new THREE.BoxGeometry(2.4, .08, .8), std(0xdfe6ea, { roughness: .3 })); table.position.set(5.2, .9, 5.4); g.add(table);
+  for (const [x, z] of [[-1.1, -.35], [1.1, -.35], [-1.1, .35], [1.1, .35]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .9, 6), std(0x777777)); l.position.set(5.2 + x, .45, 5.4 + z); g.add(l); }
+  for (let i = 0; i < 6; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(.035, .035, .22, 10), std(i % 2 ? 0x4fc3ff : 0x19e3b1, { roughness: .2 })); b.position.set(4.4 + i * .3, 1.05, 5.3); g.add(b); }
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(.22, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), std(0xffffff)); bowl.position.set(5.9, 1.16, 5.5); g.add(bowl);
+  for (let i = 0; i < 5; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(.07, 10, 8), std(pick([0xffd93d, 0xff8a3d, 0xd63447, 0x7bd13d]))); f.position.set(5.9 + rand(-.1, .1), 1.08 + rand(0, .05), 5.5 + rand(-.1, .1)); g.add(f); }
+  g.visible = false; scene3.add(g);
+  ENV.locker = { group: g, update() { } };
+}
+
+function setEnv(name, mode) {
+  G.env = name;
+  ENV.hub.group.visible = name === 'hub';
+  ENV.stadium.group.visible = name === 'stadium';
+  ENV.locker.group.visible = name === 'locker';
+  ENV.sky.mesh.visible = name !== 'locker'; ENV.stars.visible = name !== 'locker';
+  if (name === 'hub') { ENV.sky.draw(SKY.hub); applyLight(LIGHT.hub); rigEl.object3D.position.set(0, 0, 0); }
+  if (name === 'locker') { applyLight(LIGHT.locker); rigEl.object3D.position.set(0, 0, .6); }
+  if (name === 'stadium') {
+    ENV.stadium.mode(mode);
+    const sky = mode === 'match' ? SKY.dusk : mode === 'calm' ? SKY.night : SKY.dawn;
+    const lp = mode === 'match' ? LIGHT.match : mode === 'calm' ? LIGHT.calm : LIGHT.dawn;
+    ENV.sky.draw(sky); applyLight(lp); rigEl.object3D.position.set(0, 0, 6);
+  }
+  resetView();
+}
+
+/* ===================================================================
+   HOLOGRAMA CORPORAL (Etapa 1)
+   =================================================================== */
+function buildBody(parent) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0x39d5ff, emissive: 0x0b6a90, emissiveIntensity: .9, transparent: true, opacity: .5, roughness: .35, depthWrite: false });
+  const wire = new THREE.MeshBasicMaterial({ color: 0x9ff0ff, wireframe: true, transparent: true, opacity: .16, depthWrite: false });
+  const add = (geo, p, r = [0, 0, 0], s = [1, 1, 1]) => { for (const m of [mat, wire]) { const o = new THREE.Mesh(geo, m); o.position.set(...p); o.rotation.set(...r); o.scale.set(...s); o.renderOrder = 5; g.add(o); } };
+  add(new THREE.SphereGeometry(.11, 20, 14), [0, 1.62, 0]);
+  add(new THREE.CylinderGeometry(.045, .055, .1, 10), [0, 1.49, 0]);
+  add(new THREE.CapsuleGeometry(.16, .32, 6, 14), [0, 1.24, 0], [0, 0, 0], [1.22, 1, .7]);
+  add(new THREE.SphereGeometry(.16, 16, 10), [0, .96, 0], [0, 0, 0], [1.12, .7, .75]);
+  for (const s of [-1, 1]) {
+    add(new THREE.CapsuleGeometry(.05, .24, 4, 10), [s * .25, 1.3, 0], [0, 0, s * .1]);
+    add(new THREE.CapsuleGeometry(.043, .22, 4, 10), [s * .285, 1.02, .02], [0, 0, s * .05]);
+    add(new THREE.SphereGeometry(.05, 10, 8), [s * .3, .84, .03]);
+    add(new THREE.CapsuleGeometry(.075, .3, 4, 12), [s * .1, .7, 0]);
+    add(new THREE.CapsuleGeometry(.058, .3, 4, 12), [s * .1, .32, 0]);
+    add(new THREE.BoxGeometry(.09, .06, .22), [s * .1, .03, .05]);
+  }
+  // plataforma
+  const base = new THREE.Group(); parent.add(base);
+  const plat = new THREE.Mesh(new THREE.CylinderGeometry(.5, .56, .08, 48), std(0x0b1b2b, { metalness: .6, roughness: .3 })); plat.position.y = .04; base.add(plat);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(.5, .012, 8, 64), new THREE.MeshBasicMaterial({ color: 0x39d5ff })); ring.rotation.x = Math.PI / 2; ring.position.y = .085; base.add(ring);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.46, .5, 2, 40, 1, true), new THREE.MeshBasicMaterial({ color: 0x39d5ff, transparent: true, opacity: .06, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })); beam.position.y = 1.05; base.add(beam);
+  const scan = new THREE.Mesh(new THREE.TorusGeometry(.42, .006, 6, 64), new THREE.MeshBasicMaterial({ color: 0x9ff0ff, transparent: true, opacity: .8 })); scan.rotation.x = Math.PI / 2; base.add(scan);
+  g.position.y = .08; base.add(g);
+  // marcador de zona
+  const markerG = new THREE.Group(); g.add(markerG); markerG.visible = false;
+  const mMat = new THREE.MeshBasicMaterial({ color: 0xff4d5e, transparent: true, opacity: .9, depthTest: false });
+  const marker = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 12), mMat); marker.renderOrder = 30; markerG.add(marker);
+  const mGlow = glowSprite(0xff4d5e, .5, .9); mGlow.material.depthTest = false; mGlow.renderOrder = 29; markerG.add(mGlow);
+  const mRing = new THREE.Mesh(new THREE.RingGeometry(.1, .115, 40), new THREE.MeshBasicMaterial({ color: 0xff4d5e, transparent: true, opacity: .8, side: THREE.DoubleSide, depthTest: false })); mRing.renderOrder = 31; markerG.add(mRing);
+  const col = new THREE.Color(0xff4d5e);
+  const body = {
+    root: base, figure: g, markerG, spin: true, t: 0, effect: null,
+    setMarker(pos) { markerG.position.set(...pos); markerG.visible = true; this.setMarkerColor(0xff4d5e); },
+    hideMarker() { markerG.visible = false; },
+    setMarkerColor(c) { col.set(c); mMat.color.copy(col); mGlow.material.color.copy(col); mRing.material.color.copy(col); },
+    lerpMarker(a, b, k) { col.set(a).lerp(new THREE.Color(b), k); mMat.color.copy(col); mGlow.material.color.copy(col); mRing.material.color.copy(col); },
+    update(dt) {
+      this.t += dt;
+      if (this.spin) g.rotation.y += dt * .55;
+      scan.position.y = .1 + (Math.sin(this.t * 1.3) * .5 + .5) * 1.75;
+      const p = 1 + Math.sin(this.t * 6) * .18; marker.scale.setScalar(p); mGlow.scale.setScalar(.5 * p);
+      mRing.scale.setScalar(1 + ((this.t * .8) % 1) * 1.6); mRing.material.opacity = .8 * (1 - ((this.t * .8) % 1));
+      const cam = camEl.object3D; const wp = new THREE.Vector3(); cam.getWorldPosition(wp); mRing.lookAt(wp);
+      if (this.effect) this.effect(dt);
+    },
+  };
+  return body;
+}
+/* efectos de aplicación sobre la zona */
+function treatmentFX(body, kind) {
+  const holder = new THREE.Group(); body.markerG.add(holder);
+  const color = kind === 'frio' ? 0x7fd8ff : kind === 'calor' ? 0xff8a3d : 0x3ddc97;
+  const n = 46, pos = new Float32Array(n * 3), data = [];
+  for (let i = 0; i < n; i++) data.push({ x: rand(-.2, .2), y: rand(-.2, .3), z: rand(-.2, .2), v: rand(.1, .35), a: rand(0, 6) });
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: kind === 'frio' ? .03 : .025, map: dotTex, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
+  pts.renderOrder = 32; holder.add(pts);
+  let pack = null; const rings = [];
+  if (kind === 'frio' || kind === 'calor') {
+    pack = new THREE.Mesh(new THREE.BoxGeometry(.2, .14, .05), new THREE.MeshStandardMaterial({ color: kind === 'frio' ? 0xbfefff : 0xff9b5a, emissive: kind === 'frio' ? 0x1a6a8a : 0x8a2a00, transparent: true, opacity: .85, depthTest: false }));
+    pack.renderOrder = 33; pack.position.set(0, 0, .45); holder.add(pack);
+  } else {
+    for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(.08, .008, 6, 40), new THREE.MeshBasicMaterial({ color, transparent: true, depthTest: false })); r.renderOrder = 33; holder.add(r); rings.push(r); }
+  }
+  const glow = glowSprite(color, .2, .8); glow.material.depthTest = false; glow.renderOrder = 28; holder.add(glow);
+  let t = 0;
+  const step = dt => {
+    t += dt;
+    data.forEach((d, i) => {
+      if (kind === 'frio') { d.y -= d.v * dt * .6; if (d.y < -.25) d.y = .3; pos[i * 3] = d.x + Math.sin(t * 2 + d.a) * .03; pos[i * 3 + 1] = d.y; pos[i * 3 + 2] = d.z; }
+      else if (kind === 'calor') { d.y += d.v * dt; if (d.y > .45) d.y = -.1; pos[i * 3] = d.x * (1 - d.y); pos[i * 3 + 1] = d.y; pos[i * 3 + 2] = d.z * (1 - d.y); }
+      else { const a = d.a + t * 2.2; const r = .12 + ((t * .5 + i / n) % 1) * .22; pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = d.y * .4; pos[i * 3 + 2] = Math.sin(a) * r; }
+    });
+    geo.attributes.position.needsUpdate = true;
+    if (pack) pack.position.z = lerp(pack.position.z, .1, 1 - Math.exp(-dt * 3));
+    rings.forEach((r, i) => { const k = (t * .9 + i / 3) % 1; r.scale.setScalar(1 + k * 3); r.material.opacity = 1 - k; const wp = new THREE.Vector3(); camEl.object3D.getWorldPosition(wp); r.lookAt(wp); });
+    glow.scale.setScalar(.25 + Math.sin(t * 3) * .05 + Math.min(t, 3) * .08);
+  };
+  return { step, dispose() { body.markerG.remove(holder); disposeObj(holder); } };
+}
+
+/* ===================================================================
+   CONTENIDOS · ETAPA 1 (situaciones corporales)
+   =================================================================== */
+const ZONES = {
+  isquio:   { name: 'Isquiotibiales', desc: 'Parte posterior del muslo', lado: true, pos: [.1, .74, -.08], art: 'los isquiotibiales', types: ['molestia', 'fatiga', 'rigidez'] },
+  cuadri:   { name: 'Cuádriceps', desc: 'Parte anterior del muslo', lado: true, pos: [.1, .76, .08], art: 'el cuádriceps', types: ['dolor', 'fatiga', 'molestia'], golpe: 'un rodillazo en el muslo en una disputa (un "tortazo")' },
+  gemelos:  { name: 'Gemelos', desc: 'Pantorrilla', lado: true, pos: [.1, .36, -.07], art: 'los gemelos', types: ['fatiga', 'rigidez', 'molestia', 'dolor'], golpe: 'una patada en la pantorrilla en una barrida' },
+  rodilla:  { name: 'Rodilla', desc: 'Articulación de la rodilla', lado: true, pos: [.1, .54, .07], art: 'la rodilla', types: ['dolor', 'molestia'], golpe: 'un golpe en la rodilla al chocar con un rival' },
+  tobillo:  { name: 'Tobillo', desc: 'Articulación del tobillo', lado: true, pos: [.1, .12, .02], art: 'el tobillo', types: ['dolor', 'molestia'], golpe: 'una patada en el tobillo en una entrada fuerte' },
+  aductores:{ name: 'Aductores', desc: 'Zona interna del muslo · ingle', lado: true, pos: [.05, .86, .03], art: 'los aductores', types: ['molestia', 'fatiga', 'rigidez'] },
+  lumbar:   { name: 'Zona lumbar', desc: 'Espalda baja', lado: false, pos: [0, 1.07, -.12], art: 'la zona lumbar', types: ['rigidez', 'fatiga', 'molestia'] },
+  trapecio: { name: 'Trapecio', desc: 'Cuello y parte alta de la espalda', lado: true, pos: [.1, 1.47, -.05], art: 'el trapecio', types: ['rigidez', 'dolor'], golpe: 'un choque de hombros en un cabezazo' },
+};
+const TYPES = {
+  dolor:    { label: 'DOLOR', color: C.red },
+  molestia: { label: 'MOLESTIA', color: C.orange },
+  fatiga:   { label: 'FATIGA', color: C.yellow },
+  rigidez:  { label: 'RIGIDEZ', color: C.purple },
+};
+const TREAT = {
+  frio:   { label: 'FRÍO', color: C.blue, icon: iconSnow, mins: 15, verb: 'Aplicando frío', how: 'Hielo envuelto en un paño · 15 minutos',
+            expl: 'El frío reduce la inflamación y calma el dolor de un golpe o de una lesión reciente. Siempre con un paño entre el hielo y la piel.' },
+  calor:  { label: 'CALOR', color: C.orange, icon: iconFlame, mins: 20, verb: 'Aplicando calor', how: 'Compresa tibia · 20 minutos',
+            expl: 'El calor aumenta la circulación y relaja el tejido rígido. Se usa solo cuando no hay golpe ni inflamación.' },
+  masaje: { label: 'MASAJES', color: C.green, icon: iconHands, mins: 10, verb: 'Masaje de descarga', how: 'Masaje suave de descarga · 10 minutos',
+            expl: 'El masaje de descarga relaja el músculo cargado, alivia la sensación de fatiga y devuelve movilidad.' },
+};
+const HINTS = {
+  frio:   { calor: 'El calor aumenta la inflamación de una zona recién golpeada o hinchada.', masaje: 'Masajear una zona golpeada o inflamada puede empeorar el daño.' },
+  calor:  { frio: 'El frío contrae todavía más el músculo: una zona rígida necesita relajarse y recibir circulación.', masaje: 'Masajear un tejido rígido y frío es incómodo y poco efectivo: primero necesita soltarse.' },
+  masaje: { frio: 'No hubo golpe ni hay inflamación: el frío no es prioritario. El músculo cargado necesita descarga.', calor: 'El calor no es lo más efectivo acá: la carga muscular se alivia mejor con una descarga manual.' },
+};
+const plural = z => z.art.startsWith('los ');
+const fem = z => z.art.startsWith('la ');
+const agr = (z, base) => plural(z) ? base + 's' : fem(z) ? base.slice(0, -1) + 'a' : base;
+const vb = (z, s, p) => plural(z) ? p : s;
+function makeSituation(key, type, m) {
+  const z = ZONES[key]; const side = z.lado ? pick(['derecha', 'izquierda']) : null;
+  const intensity = type === 'dolor' ? pick(['moderada', 'alta']) : type === 'rigidez' ? pick(['leve', 'moderada']) : pick(['leve', 'moderada', 'alta']);
+  const level = { leve: randi(2, 3), moderada: randi(4, 6), alta: randi(7, 8) }[intensity];
+  const min = randi(52, 88); const lado = side ? (key === 'trapecio' ? ` del lado ${side}` : ` de la pierna ${side}`) : '';
+  let correct, text, signals;
+  if (type === 'dolor') {
+    correct = 'frio';
+    text = `Minuto ${min}: recibiste ${z.golpe}. Ahora la zona está hinchada, caliente y duele al tocarla.`;
+    signals = ['Golpe reciente', 'Hinchazón', 'Calor en la zona'];
+  } else if (type === 'molestia') {
+    if (intensity === 'alta') { correct = 'frio'; text = `En un sprint del minuto ${min} sentiste un pinchazo en ${z.art}${lado}. Se nota una leve hinchazón y molesta al apoyar.`; signals = ['Pinchazo', 'Hinchazón leve', 'Aparición reciente']; }
+    else { correct = 'masaje'; text = `Los cambios de ritmo y los arranques cargaron ${z.art}. Sentís tensión al estirar, pero no hubo golpe ni hay hinchazón.`; signals = ['Sobrecarga', 'Sin golpe', 'Sin hinchazón']; }
+  } else if (type === 'fatiga') {
+    correct = 'masaje';
+    text = `Después de ${fmt1(m.km)} km y ${m.sprints} sprints, ${z.art} ${vb(z, 'se siente', 'se sienten')} ${agr(z, 'pesado')} y sin fuerza. No hay un dolor puntual.`;
+    signals = ['Cansancio muscular', 'Pesadez', 'Sin dolor puntual'];
+  } else {
+    correct = 'calor';
+    text = `${cap(z.art)} ${vb(z, 'está', 'están')} ${agr(z, 'duro')} y cuesta moverl${plural(z) ? 'os' : fem(z) ? 'a' : 'o'}. ${vb(z, 'Se endureció', 'Se endurecieron')} al enfriarte después del partido. No hubo golpe ni hinchazón.`;
+    signals = ['Poca movilidad', 'Tensión', 'Sin inflamación'];
+  }
+  const pos = z.pos.slice(); if (side === 'derecha') pos[0] = -pos[0];
+  return { key, zone: z, side, type, intensity, level, correct, text, signals, pos, attempts: 0, wrongs: [], firstTry: false };
+}
+function genSituations(m) {
+  for (let tries = 0; tries < 80; tries++) {
+    const keys = shuffle(Object.keys(ZONES)).slice(0, 3);
+    const sits = keys.map(k => makeSituation(k, pick(ZONES[k].types), m));
+    const answers = new Set(sits.map(s => s.correct)); const types = new Set(sits.map(s => s.type));
+    if (answers.size >= 2 && types.size >= 2) return sits;
+  }
+  return ['cuadri', 'isquio', 'lumbar'].map((k, i) => makeSituation(k, ['dolor', 'fatiga', 'rigidez'][i], m));
+}
+
+/* ===================================================================
+   PANTALLAS
+   =================================================================== */
+/* ---------- 0. Bienvenida ---------- */
+function showWelcome() {
+  const st = makeStage(); makeScreen();
+  setHint('Arrastrá para mirar en 360° · Clic o toque para seleccionar · Botón VR (abajo a la derecha) para entrar en realidad virtual');
+  const panel = canvasPlane(2.6, 1.5, (c, W, H) => {
+    panelBg(c, W, H, C.teal);
+    txt(c, 'EXPERIENCIA INMERSIVA · WEB + VR 360°', 60, 76, { size: 20, weight: 800, color: C.teal, ls: 4 });
+    iconBall(c, W - 110, 110, 56);
+    setFont(c, 90, 900); const grd = c.createLinearGradient(60, 0, 760, 0); grd.addColorStop(0, '#ffffff'); grd.addColorStop(1, C.teal);
+    c.fillStyle = grd; c.textAlign = 'left'; c.fillText('PIKI RECOVERY', 54, 170);
+    txt(c, 'El trabajo invisible', 60, 224, { size: 36, weight: 600, color: C.orange, italic: true });
+    wrap(c, 'Todo lo que pasa después del partido —y que casi nadie ve— también es rendimiento. Acabás de jugar: ahora tu cuerpo necesita recuperarse en tres etapas.', 60, 278, W - 120, 37, { size: 25, weight: 500, color: '#c9d6e6' });
+    const chips = [['1', 'Recuperación física', C.red, iconBody], ['2', 'Recuperación nutricional', C.yellow, iconDrop], ['3', 'Vuelta a la calma', C.purple, iconBreath]];
+    const cw = (W - 120 - 40) / 3;
+    chips.forEach((ch, i) => {
+      const x = 60 + i * (cw + 20), y = 388;
+      rr(c, x, y, cw, 100, 20); c.fillStyle = 'rgba(255,255,255,.05)'; c.fill(); c.strokeStyle = hexA(ch[2], .55); c.lineWidth = 2; c.stroke();
+      circle(c, x + 50, y + 50, 30); c.fillStyle = hexA(ch[2], .2); c.fill(); ch[3](c, x + 50, y + 50, 17, ch[2]);
+      txt(c, 'ETAPA ' + ch[0], x + 96, y + 38, { size: 15, weight: 800, color: ch[2], ls: 2 });
+      wrap(c, ch[1], x + 96, y + 64, cw - 110, 24, { size: 20, weight: 700, color: C.text });
+    });
+    txt(c, 'Mirá a tu alrededor · Seleccioná con clic, toque, gatillo o sosteniendo la mirada', W / 2, H - 38, { size: 19, weight: 600, color: C.muted, align: 'center' });
+  }, { parent: screen, pos: [0, 1.86, -2.7] });
+  const b = button('COMENZAR', { parent: screen, pos: [0, .95, -2.66], w: 1.05, h: .23, onClick: () => { Sound.init(); showSport(); } });
+  appear(panel); appear(b, 250);
+}
+
+/* ---------- 1. Elección de deporte ---------- */
+const SPORTS = [['futbol', 'Fútbol', '⚽', true], ['basquet', 'Básquet', '🏀'], ['voley', 'Vóley', '🏐'], ['tenis', 'Tenis', '🎾'], ['hockey', 'Hockey', '🏑'], ['rugby', 'Rugby', '🏉']];
+function drawSportCard(c, W, H, s) {
+  const p = 10; c.save();
+  if (s.hover && s.available) { c.shadowColor = C.teal; c.shadowBlur = 26; }
+  rr(c, p, p, W - 2 * p, H - 2 * p, 26);
+  if (s.available) { const g = c.createLinearGradient(0, 0, W, H); g.addColorStop(0, 'rgba(25,227,177,.32)'); g.addColorStop(1, 'rgba(15,181,214,.14)'); c.fillStyle = g; }
+  else c.fillStyle = s.hover ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.04)';
+  c.fill(); c.shadowBlur = 0; c.lineWidth = s.hover ? 4 : 2.5; c.strokeStyle = s.available ? (s.hover ? '#fff' : C.teal) : 'rgba(255,255,255,.18)'; c.stroke(); c.restore();
+  if (s.available) iconBall(c, W / 2, H * .4, H * .21);
+  else { c.globalAlpha = .35; txt(c, s.emoji, W / 2, H * .4 + H * .09, { size: H * .28, family: EMOJI, align: 'center', weight: 400 }); c.globalAlpha = 1; }
+  txt(c, s.name, W / 2, H * .76, { size: 34, weight: 800, color: s.available ? '#fff' : C.dim, align: 'center' });
+  if (s.available) { setFont(c, 15, 700); const cw = c.measureText('DISPONIBLE').width + 28; chip(c, W / 2 - cw / 2, H * .83, 'DISPONIBLE', C.teal, { size: 15, h: 30, padX: 14 }); }
+  else { iconLock(c, W - 44, 44, 16, C.dim); txt(c, 'PRÓXIMAMENTE', W / 2, H * .9, { size: 16, weight: 800, color: C.dim, align: 'center', ls: 2 }); }
+}
+function showSport() {
+  makeScreen();
+  setHint('Elegí tu deporte · Esta versión está dedicada al fútbol');
+  const panel = canvasPlane(2.7, 1.75, (c, W, H, s) => {
+    panelBg(c, W, H, C.teal);
+    txt(c, 'PASO 1 · TU DISCIPLINA', 56, 66, { size: 19, weight: 800, color: C.teal, ls: 4 });
+    txt(c, '¿Qué deporte practicás?', 56, 128, { size: 54, weight: 900 });
+    txt(c, 'Tu elección define el espacio en el que vas a aparecer.', 56, 168, { size: 23, weight: 500, color: C.muted });
+    txt(c, s.msg, W / 2, H - 30, { size: 20, weight: 600, color: s.warn ? C.orange : C.muted, align: 'center' });
+  }, { parent: screen, pos: [0, 1.73, -2.75], state: { msg: 'Esta versión de Piki Recovery está dedicada al fútbol ⚽', warn: false } });
+  appear(panel);
+  SPORTS.forEach(([id, name, emoji, available], i) => {
+    const x = [-.84, 0, .84][i % 3], y = i < 3 ? 1.83 : 1.3;
+    const card = button(name, {
+      parent: screen, pos: [x, y, -2.73], w: .76, h: .48, draw: drawSportCard, state: { name, emoji, available: !!available },
+      onClick: el => {
+        if (!available) {
+          Sound.soft(); panel.redraw({ msg: `${name} va a estar disponible próximamente. Elegí Fútbol para empezar.`, warn: true });
+          const o = el.object3D.position.x; tween(380, k => el.object3D.position.x = o + Math.sin(k * Math.PI * 6) * .02 * (1 - k), ease.lin);
+          return;
+        }
+        G.sport = id; startMatch();
+      },
+    });
+    appear(card, 120 + i * 70);
+  });
+}
+
+/* ---------- 2. Aparición en la cancha ---------- */
+async function startMatch() {
+  G.match = newMatch(); G.phys = null; G.nutri = null; G.calm = null;
+  Sound.padStop(1); Sound.beatStop(.5);
+  await transition(() => {
+    setEnv('stadium', 'match'); makeStage(); makeScreen();
+    Sound.crowdStart(.42);
+  }, { card: { kicker: 'FÚTBOL', title: 'Estadio Piki', sub: `Final del partido · Piki FC ${G.match.goalsHome} – ${G.match.goalsAway} Visitante` }, hold: 1800 });
+  Sound.whistle(); setTimeout(() => Sound.crowdCheer(2.4, 5), 1400);
+  showArrival();
+}
+function showArrival() {
+  makeScreen();
+  setHint('Mirá a tu alrededor: el partido terminó y el estadio empieza a vaciarse');
+  const m = G.match;
+  const panel = canvasPlane(2.7, 1.62, (c, W, H) => {
+    panelBg(c, W, H, C.orange);
+    txt(c, `FÚTBOL · ESTADIO PIKI · 90+${m.minutes - 90}'`, 56, 66, { size: 19, weight: 800, color: C.orange, ls: 4 });
+    txt(c, '¡Final del partido!', 56, 130, { size: 60, weight: 900 });
+    txt(c, 'El esfuerzo terminó. La recuperación recién comienza.', 56, 176, { size: 26, weight: 600, color: C.teal });
+    const stats = [
+      [`${m.minutes}'`, 'Minutos jugados'], [`${fmt1(m.km)} km`, 'Distancia recorrida'], [`${m.sprints}`, 'Sprints'],
+      [`${m.fcmax} lpm`, 'Frecuencia cardíaca máx.'], [`≈${fmt1(m.sweat)} L`, 'Líquido perdido (sudor)'], [`${m.kcal.toLocaleString('es-AR')} kcal`, 'Energía gastada'],
+    ];
+    const cw = (W - 112 - 40) / 3, ch = 100;
+    stats.forEach(([v, l], i) => {
+      const x = 56 + (i % 3) * (cw + 20), y = 208 + Math.floor(i / 3) * (ch + 16);
+      rr(c, x, y, cw, ch, 18); c.fillStyle = 'rgba(255,255,255,.055)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 2; c.stroke();
+      txt(c, v, x + 22, y + 52, { size: 38, weight: 900, color: '#fff' }); txt(c, l, x + 22, y + 82, { size: 18, weight: 600, color: C.muted });
+    });
+    wrap(c, 'Lo que hagas en las próximas horas es trabajo invisible: nadie lo ve, pero define cómo llegás al próximo entrenamiento y al próximo partido.', 56, 478, W - 112, 32, { size: 23, weight: 500, color: '#c9d6e6' });
+    stepper(c, W - 420, 70, 380, 0, C.orange);
+  }, { parent: screen, pos: [0, 1.84, -2.8] });
+  const b = button('INICIAR RECUPERACIÓN  →', { parent: screen, pos: [0, .9, -2.76], w: 1.3, h: .23, onClick: () => showPhysIntro() });
+  appear(panel, 2800, 700); appear(b, 3300);
+}
+
+/* ---------- 3. Etapa 1: Recuperación física ---------- */
+let body = null;
+function ensureBody() {
+  if (body && body.root.parent) return body;
+  const holder = new THREE.Group(); holder.position.set(1.55, stage.floorY, -2.45); holder.rotation.y = -.45; stage.object3D.add(holder);
+  body = buildBody(holder); body.holder = holder;
+  const off = onTick(dt => body.update(dt), stage);
+  holder.scale.setScalar(.001); tween(900, k => holder.scale.setScalar(Math.max(.001, k)), ease.out);
+  const label = canvasPlane(.9, .16, (c, W, H) => { txt(c, 'ESCANEO CORPORAL', W / 2, H * .62, { size: 26, weight: 800, color: C.cyan, align: 'center', ls: 5 }); }, { parent: stage, pos: [1.55, 2.1 + stage.floorY, -2.45], rot: [0, -25, 0] });
+  appear(label, 400);
+  return body;
+}
+function showPhysIntro() {
+  G.phys = { sits: genSituations(G.match), idx: 0 };
+  Sound.crowdLevel(.22, 3);
+  makeScreen(); ensureBody(); body.hideMarker();
+  setHint('Etapa 1 · Recuperación física');
+  const panel = canvasPlane(2.25, 1.55, (c, W, H) => {
+    panelBg(c, W, H, C.red);
+    txt(c, 'ETAPA 1 DE 3', 48, 62, { size: 19, weight: 800, color: C.red, ls: 4 });
+    stepper(c, W - 400, 58, 370, 0, C.red);
+    txt(c, 'Recuperación física', 48, 150, { size: 54, weight: 900 });
+    wrap(c, 'Después del partido tu cuerpo te muestra señales. En cada situación el sistema genera al azar qué sentís, en qué zona y con qué intensidad.', 48, 204, W - 96, 34, { size: 24, weight: 500, color: '#c9d6e6' });
+    let x = 48; Object.values(TYPES).forEach(t => { x += chip(c, x, 300, t.label, t.color, { size: 18 }) + 12; });
+    wrap(c, 'Leé las señales, interpretá qué está pasando y decidí qué necesita la zona: no hay instrucciones, la decisión es tuya.', 48, 390, W - 96, 34, { size: 24, weight: 600, color: C.text });
+    txt(c, '3 situaciones · distintas en cada partida', 48, H - 42, { size: 19, weight: 600, color: C.muted });
+  }, { parent: screen, pos: [-.4, 1.82, -2.75] });
+  const b = button('VER SITUACIÓN 1  →', { parent: screen, pos: [-.4, .9, -2.72], w: 1.1, h: .22, onClick: () => showSituation(0) });
+  appear(panel); appear(b, 250);
+}
+function drawChoice(c, W, H, s) {
+  const t = TREAT[s.opt]; const p = 10;
+  c.save(); c.globalAlpha = s.st === 'dim' ? .3 : 1;
+  if (s.hover && !s.st) { c.shadowColor = t.color; c.shadowBlur = 28; }
+  rr(c, p, p, W - 2 * p, H - 2 * p, 28);
+  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, hexA(t.color, s.hover ? .38 : .22)); g.addColorStop(1, 'rgba(6,14,26,.9)'); c.fillStyle = g; c.fill();
+  c.shadowBlur = 0; c.lineWidth = s.hover || s.st === 'correct' ? 5 : 3;
+  c.strokeStyle = s.st === 'wrong' ? C.red : s.st === 'correct' ? C.green : s.hover ? '#fff' : hexA(t.color, .8); c.stroke();
+  t.icon(c, W / 2, H * .4, H * .2, t.color);
+  txt(c, t.label, W / 2, H * .82, { size: 34, weight: 900, color: '#fff', align: 'center', ls: 2 });
+  if (s.st === 'wrong') { c.fillStyle = 'rgba(255,77,94,.25)'; rr(c, p, p, W - 2 * p, H - 2 * p, 28); c.fill(); circle(c, W - 42, 42, 22); c.fillStyle = C.red; c.fill(); iconCross(c, W - 42, 42, 9, '#fff', 4); }
+  if (s.st === 'correct') { circle(c, W - 42, 42, 22); c.fillStyle = C.green; c.fill(); iconCheck(c, W - 42, 42, 11, '#04131f', 4.5); }
+  c.restore();
+}
+function drawSituation(c, W, H, s) {
+  const sit = s.sit, ty = TYPES[sit.type], tr = TREAT[sit.correct];
+  panelBg(c, W, H, ty.color);
+  txt(c, 'ETAPA 1 · RECUPERACIÓN FÍSICA', 44, 58, { size: 17, weight: 800, color: C.red, ls: 3 });
+  txt(c, `SITUACIÓN ${s.i + 1} / 3`, W - 44, 58, { size: 17, weight: 800, color: C.muted, align: 'right', ls: 2 });
+  // tipo
+  setFont(c, 26, 900); const bw = c.measureText(ty.label).width + 40;
+  rr(c, 44, 82, bw, 50, 25); c.fillStyle = ty.color; c.fill(); txt(c, ty.label, 64, 116, { size: 26, weight: 900, color: '#150a05', ls: 2 });
+  // intensidad
+  txt(c, `INTENSIDAD ${sit.intensity.toUpperCase()} · ${sit.level}/10`, W - 44, 100, { size: 17, weight: 800, color: C.text, align: 'right', ls: 1 });
+  for (let k = 0; k < 10; k++) { const x = W - 44 - 250 + k * 25.5; rr(c, x, 112, 20, 16, 4); c.fillStyle = k < sit.level ? `hsl(${50 - k * 5.5},95%,58%)` : 'rgba(255,255,255,.12)'; c.fill(); }
+  // zona
+  txt(c, sit.zone.name, 44, 192, { size: 44, weight: 900 });
+  txt(c, sit.zone.desc + (sit.side ? ` · lado ${sit.side}` : ''), 44, 226, { size: 21, weight: 600, color: C.muted });
+  let y = wrap(c, sit.text, 44, 272, W - 88, 32, { size: 23, weight: 500, color: '#dbe6f2' });
+  let x = 44; y += 2; sit.signals.forEach(sg => { x += chip(c, x, y, sg, ty.color, { size: 16, h: 34, padX: 13 }) + 10; });
+  // zona de feedback
+  const by = H - 196, bh = 170;
+  const box = (col) => { rr(c, 30, by, W - 60, bh, 22); c.fillStyle = hexA(col, .14); c.fill(); c.strokeStyle = hexA(col, .6); c.lineWidth = 2.5; c.stroke(); };
+  if (s.mode === 'question') {
+    box(C.teal);
+    txt(c, '¿Qué necesita esta zona?', W / 2, by + 78, { size: 40, weight: 900, align: 'center' });
+    txt(c, 'Interpretá las señales y elegí una opción', W / 2, by + 122, { size: 20, weight: 600, color: C.muted, align: 'center' });
+  } else if (s.mode === 'wrong') {
+    box(C.red); circle(c, 76, by + 50, 22); c.fillStyle = C.red; c.fill(); iconCross(c, 76, by + 50, 9, '#fff', 4);
+    txt(c, 'No es la mejor opción para esta situación.', 112, by + 59, { size: 26, weight: 800, color: '#ffb3bb' });
+    const yy = wrap(c, HINTS[sit.correct][s.wrong] || '', 60, by + 100, W - 120, 28, { size: 20, weight: 500, color: '#f3dde0' });
+    txt(c, 'Probá con otra opción.', 60, Math.min(yy + 4, by + bh - 14), { size: 19, weight: 700, color: C.text });
+  } else if (s.mode === 'correct') {
+    box(C.green); circle(c, 76, by + 50, 22); c.fillStyle = C.green; c.fill(); iconCheck(c, 76, by + 50, 11, '#04131f', 4.5);
+    txt(c, `Respuesta correcta · ${tr.label}`, 112, by + 59, { size: 28, weight: 900, color: '#b9f7dc' });
+    wrap(c, tr.expl, 60, by + 100, W - 120, 28, { size: 20, weight: 500, color: '#e0f5ec' });
+  } else if (s.mode === 'applying' || s.mode === 'done') {
+    const col = tr.color; box(col);
+    tr.icon(c, 80, by + 52, 24, col);
+    const done = s.mode === 'done';
+    txt(c, done ? 'Zona recuperada' : tr.verb + '…', 120, by + 62, { size: 30, weight: 900, color: done ? C.green : '#fff' });
+    const mins = tr.mins * (s.k || 0); const mm = Math.floor(mins), ss = Math.floor((mins - mm) * 60);
+    txt(c, `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')} / ${tr.mins}:00`, W - 60, by + 62, { size: 26, weight: 800, color: C.text, align: 'right' });
+    progressBar(c, 60, by + 86, W - 120, 22, s.k || 0, done ? C.green : col);
+    txt(c, done ? `${sit.attempts === 1 ? 'Acertaste a la primera ✓' : `Lo resolviste en ${sit.attempts} intentos`} · ${tr.how}` : tr.how, 60, by + 142, { size: 19, weight: 600, color: C.muted });
+  }
+}
+function showSituation(i) {
+  makeScreen(); ensureBody();
+  const sit = G.phys.sits[i]; G.phys.idx = i;
+  body.setMarker(sit.pos); body.spin = true;
+  setHint(`Situación ${i + 1} de 3 · ¿Qué necesita la zona? Elegí Frío, Calor o Masajes`);
+  const panel = canvasPlane(2.2, 1.62, drawSituation, { parent: screen, pos: [-.42, 1.86, -2.75], state: { sit, i, mode: 'question' } });
+  appear(panel);
+  const zoneTag = canvasPlane(.9, .14, (c, W, H) => { rr(c, 4, 4, W - 8, H - 8, (H - 8) / 2); c.fillStyle = 'rgba(5,11,22,.8)'; c.fill(); c.strokeStyle = TYPES[sit.type].color; c.lineWidth = 3; c.stroke(); txt(c, sit.zone.name.toUpperCase() + (sit.side ? ` · ${sit.side.toUpperCase()}` : ''), W / 2, H * .66, { size: 24, weight: 800, color: TYPES[sit.type].color, align: 'center', ls: 2 }); }, { parent: screen, pos: [1.55, 2.3 + stage.floorY, -2.45], rot: [0, -25, 0] });
+  appear(zoneTag, 300);
+  const opts = ['frio', 'calor', 'masaje']; const btns = {};
+  let busy = false;
+  opts.forEach((opt, k) => {
+    btns[opt] = button(TREAT[opt].label, {
+      parent: screen, pos: [-1.13 + k * .71, .79, -2.7], w: .64, h: .44, draw: drawChoice, state: { opt, st: null },
+      onClick: async el => {
+        if (busy || sit.done) return;
+        sit.attempts++;
+        if (opt === sit.correct) {
+          busy = true; sit.firstTry = sit.attempts === 1; Sound.correct();
+          opts.forEach(o => { if (o !== opt) { btns[o].redraw({ st: 'dim', disabled: true }); btns[o].classList.remove('clickable'); } });
+          el.redraw({ st: 'correct', hover: false }); el.classList.remove('clickable');
+          panel.redraw({ mode: 'correct' });
+          await wait(2300);
+          await applyTreatment(sit, panel, i);
+        } else {
+          Sound.wrong(); sit.wrongs.push(opt);
+          el.redraw({ st: 'wrong', disabled: true, hover: false }); el.classList.remove('clickable'); scaleTo(el, 1);
+          const o = el.object3D.position.x; tween(400, k2 => el.object3D.position.x = o + Math.sin(k2 * Math.PI * 6) * .025 * (1 - k2), ease.lin);
+          panel.redraw({ mode: 'wrong', wrong: opt });
+        }
+      },
+    });
+    btns[opt].classList.add('choice'); appear(btns[opt], 200 + k * 90);
+  });
+}
+async function applyTreatment(sit, panel, i) {
+  const tr = TREAT[sit.correct];
+  body.spin = false;
+  // gira el cuerpo para mostrar la zona al usuario
+  const fig = body.figure; const target = sit.pos[2] < -.03 ? Math.PI : 0; const from = fig.rotation.y % (Math.PI * 2);
+  let to = target; while (to - from > Math.PI) to -= Math.PI * 2; while (to - from < -Math.PI) to += Math.PI * 2;
+  tween(900, k => fig.rotation.y = lerp(from, to, k));
+  const fx = treatmentFX(body, sit.correct); body.effect = fx.step;
+  panel.redraw({ mode: 'applying', k: 0 });
+  let acc = 0;
+  await tween(6500, k => {
+    acc += 1; if (acc % 3 === 0 || k === 1) panel.redraw({ k });
+    body.lerpMarker(0xff4d5e, 0x3ddc97, k);
+  }, ease.lin);
+  sit.done = true; body.effect = null; fx.dispose(); body.setMarkerColor(0x3ddc97);
+  panel.redraw({ mode: 'done', k: 1 }); Sound.correct();
+  const last = i === G.phys.sits.length - 1;
+  screen.querySelectorAll('.choice').forEach(el => vanish(el, 350));
+  const nb = button(last ? 'VER RESUMEN  →' : `SIGUIENTE SITUACIÓN  →`, { parent: screen, pos: [-.42, .84, -2.7], w: 1.15, h: .23, onClick: () => { body.spin = true; last ? showPhysSummary() : showSituation(i + 1); } });
+  appear(nb, 300);
+}
+function showPhysSummary() {
+  makeScreen(); body.hideMarker(); body.spin = true;
+  setHint('Recuperación física completada');
+  const sits = G.phys.sits; const first = sits.filter(s => s.firstTry).length;
+  G.phys.firstTry = first; G.phys.done = true;
+  const panel = canvasPlane(2.3, 1.62, (c, W, H) => {
+    panelBg(c, W, H, C.green);
+    txt(c, 'ETAPA 1 DE 3 · COMPLETADA', 48, 62, { size: 19, weight: 800, color: C.green, ls: 4 });
+    stepper(c, W - 400, 58, 370, 1, C.green);
+    txt(c, 'Recuperación física', 48, 140, { size: 50, weight: 900 });
+    txt(c, `${first} de 3 decisiones correctas a la primera`, 48, 180, { size: 24, weight: 600, color: C.teal });
+    sits.forEach((s, k) => {
+      const y = 210 + k * 84; const tr = TREAT[s.correct], ty = TYPES[s.type];
+      rr(c, 48, y, W - 96, 72, 16); c.fillStyle = 'rgba(255,255,255,.05)'; c.fill();
+      circle(c, 88, y + 36, 24); c.fillStyle = hexA(tr.color, .22); c.fill(); tr.icon(c, 88, y + 36, 14, tr.color);
+      txt(c, `${s.zone.name}${s.side ? ' · ' + s.side : ''}`, 128, y + 32, { size: 24, weight: 800 });
+      txt(c, `${ty.label.toLowerCase()} ${s.intensity} → ${tr.label.toLowerCase()} · ${tr.how.split('·')[1].trim()}`, 128, y + 58, { size: 18, weight: 600, color: C.muted });
+      const ok = s.firstTry; txt(c, ok ? 'A la primera' : `${s.attempts} intentos`, W - 70, y + 44, { size: 19, weight: 800, color: ok ? C.green : C.orange, align: 'right' });
+    });
+    wrap(c, 'Trabajo invisible: elegir bien entre frío, calor o descarga reduce el riesgo de lesión y acelera la vuelta al entrenamiento.', 48, H - 62, W - 96, 30, { size: 21, weight: 500, color: '#c9d6e6', italic: true });
+  }, { parent: screen, pos: [-.4, 1.84, -2.75] });
+  const b = button('CONTINUAR · ETAPA 2  →', { parent: screen, pos: [-.4, .88, -2.72], w: 1.2, h: .22, onClick: () => startNutrition() });
+  appear(panel); appear(b, 300);
+}
+
+/* ---------- 4. Etapa 2: Recuperación nutricional ---------- */
+const FOODS = [
+  { e: '💧', name: 'Agua', good: true, E: 0, H: 16, R: 0, tip: 'Hidratación pura' },
+  { e: '🧃', name: 'Bebida isotónica', good: true, E: 7, H: 13, R: 0, tip: 'Líquido + sales + azúcares' },
+  { e: '🍉', name: 'Sandía', good: true, E: 5, H: 11, R: 0, tip: 'Fruta muy hidratante' },
+  { e: '🍊', name: 'Naranja', good: true, E: 7, H: 8, R: 0, tip: 'Agua, azúcares y vitamina C' },
+  { e: '🍌', name: 'Banana', good: true, E: 13, H: 2, R: 1, tip: 'Carbohidratos rápidos y potasio' },
+  { e: '🍝', name: 'Pasta', good: true, E: 17, H: 0, R: 3, tip: 'Recarga el glucógeno' },
+  { e: '🍚', name: 'Arroz', good: true, E: 16, H: 0, R: 2, tip: 'Carbohidrato de fácil digestión' },
+  { e: '🍞', name: 'Pan integral', good: true, E: 12, H: 0, R: 3, tip: 'Energía de absorción gradual' },
+  { e: '🥔', name: 'Papa hervida', good: true, E: 13, H: 1, R: 1, tip: 'Carbohidrato y potasio' },
+  { e: '🍗', name: 'Pollo', good: true, E: 0, H: 0, R: 17, tip: 'Proteína para reparar el músculo' },
+  { e: '🥚', name: 'Huevo', good: true, E: 1, H: 0, R: 14, tip: 'Proteína de alta calidad' },
+  { e: '🐟', name: 'Pescado', good: true, E: 0, H: 1, R: 15, tip: 'Proteína y grasas buenas' },
+  { e: '🥛', name: 'Leche chocolatada', good: true, E: 8, H: 6, R: 9, tip: 'Carbohidratos + proteína + líquido' },
+  { e: '🥜', name: 'Frutos secos', good: true, E: 5, H: 0, R: 6, tip: 'Proteína y energía' },
+  { e: '🥤', name: 'Gaseosa', good: false, E: 3, H: -6, R: 0, tip: 'Azúcar y gas: no hidrata bien' },
+  { e: '🍺', name: 'Cerveza', good: false, E: 0, H: -14, R: -4, tip: 'El alcohol deshidrata y frena la recuperación' },
+  { e: '🍟', name: 'Papas fritas', good: false, E: 3, H: -7, R: 0, tip: 'Grasa y sal: digestión lenta' },
+  { e: '🍔', name: 'Hamburguesa', good: false, E: 3, H: -3, R: 2, tip: 'Mucha grasa: no es prioritaria ahora' },
+  { e: '🍩', name: 'Dona', good: false, E: 3, H: -3, R: -2, tip: 'Azúcar y grasa, pocos nutrientes' },
+  { e: '🥫', name: 'Energizante', good: false, E: 2, H: -9, R: 0, tip: 'Cafeína: no repone líquidos' },
+  { e: '🍬', name: 'Golosinas', good: false, E: 4, H: -2, R: -2, tip: 'Azúcar vacío: pico y bajón' },
+  { e: '🌭', name: 'Pancho', good: false, E: 3, H: -4, R: 1, tip: 'Ultraprocesado y salado' },
+];
+const BARS = [
+  { k: 'E', name: 'Energía', color: C.yellow, icon: iconBolt },
+  { k: 'H', name: 'Hidratación', color: C.blue, icon: iconDrop },
+  { k: 'R', name: 'Reparación', color: C.orange, icon: iconDumbbell },
+];
+const ZMIN = 60, ZMAX = 90;
+const zoneScore = v => v >= ZMIN && v <= ZMAX ? 100 : v < ZMIN ? v / ZMIN * 100 : Math.max(40, 100 - (v - ZMAX) * 4);
+
+async function startNutrition() {
+  await transition(() => {
+    Sound.crowdStop(1.5);
+    setEnv('locker'); makeStage(); makeScreen(); body = null;
+    showNutriIntro();
+  }, { card: { kicker: 'ETAPA 2 DE 3', title: 'Recuperación nutricional', sub: 'Vestuario · Ventana de recuperación post-partido', color: C.yellow }, hold: 1800 });
+}
+function showNutriIntro() {
+  makeScreen();
+  setHint('Etapa 2 · Recuperación nutricional');
+  const m = G.match;
+  const panel = canvasPlane(2.5, 1.62, (c, W, H) => {
+    panelBg(c, W, H, C.yellow);
+    txt(c, 'ETAPA 2 DE 3', 52, 62, { size: 19, weight: 800, color: C.yellow, ls: 4 });
+    stepper(c, W - 410, 58, 370, 1, C.yellow);
+    txt(c, 'Recuperación nutricional', 52, 146, { size: 52, weight: 900 });
+    wrap(c, `Perdiste cerca de ${fmt1(m.sweat)} L de sudor y gastaste ${m.kcal.toLocaleString('es-AR')} kcal. Ahora tu cuerpo necesita recuperar energía y recursos.`, 52, 196, W - 104, 32, { size: 23, weight: 500, color: '#c9d6e6' });
+    const cw = (W - 104 - 32) / 3;
+    BARS.forEach((b, i) => {
+      const x = 52 + i * (cw + 16), y = 268; rr(c, x, y, cw, 112, 18); c.fillStyle = hexA(b.color, .1); c.fill(); c.strokeStyle = hexA(b.color, .5); c.lineWidth = 2; c.stroke();
+      b.icon(c, x + 42, y + 42, 20, b.color); txt(c, b.name, x + 76, y + 50, { size: 25, weight: 800 });
+      txt(c, ['Carbohidratos', 'Líquidos y sales', 'Proteínas'][i], x + 22, y + 92, { size: 19, weight: 600, color: C.muted });
+    });
+    txt(c, 'ELEGÍ LO QUE TU CUERPO NECESITA PARA RECUPERARSE', 52, 428, { size: 22, weight: 900, color: C.yellow, ls: 1 });
+    wrap(c, 'Seleccioná los alimentos que pasan a tu alrededor. Mantené las tres barras en la zona verde (60–90%): lo que falta baja el rendimiento, lo que sobra también desequilibra. Algunos alimentos no son prioritarios. Los niveles bajan con el tiempo y todo se acelera.', 52, 464, W - 104, 29, { size: 20, weight: 500, color: C.text });
+  }, { parent: screen, pos: [0, 1.84, -2.75] });
+  const b = button('EMPEZAR MINIJUEGO  →', { parent: screen, pos: [0, .9, -2.72], w: 1.2, h: .23, variant: 'warm', onClick: () => runNutritionGame() });
+  appear(panel); appear(b, 300);
+}
+function drawHUD(c, W, H, s) {
+  panelBg(c, W, H, C.yellow, .86);
+  const t = Math.max(0, Math.ceil(s.left)); const col = s.left < 10 ? C.red : '#fff';
+  txt(c, 'TIEMPO', 44, 62, { size: 17, weight: 800, color: C.muted, ls: 3 });
+  txt(c, `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, 44, 142, { size: 76, weight: 900, color: col });
+  txt(c, `NIVEL ${s.level} / 3`, 44, 190, { size: 20, weight: 800, color: C.yellow, ls: 2 });
+  for (let i = 0; i < 3; i++) { rr(c, 44 + i * 44, 204, 36, 10, 5); c.fillStyle = i < s.level ? C.yellow : 'rgba(255,255,255,.15)'; c.fill(); }
+  txt(c, `✔ ${s.good}   ✖ ${s.bad}`, 44, 256, { size: 22, weight: 800, color: C.text });
+  const bx = 330, bw = W - bx - 170;
+  BARS.forEach((b, i) => {
+    const y = 40 + i * 78, v = s[b.k];
+    b.icon(c, bx, y + 26, 16, b.color); txt(c, b.name, bx + 28, y + 34, { size: 24, weight: 800 });
+    const x0 = bx + 200, w = bw - 200, h = 32;
+    rr(c, x0, y + 8, w, h, 10); c.fillStyle = 'rgba(255,255,255,.08)'; c.fill();
+    c.fillStyle = 'rgba(61,220,151,.18)'; c.fillRect(x0 + w * ZMIN / 100, y + 8, w * (ZMAX - ZMIN) / 100, h);
+    c.strokeStyle = 'rgba(61,220,151,.8)'; c.lineWidth = 2; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(x0 + w * ZMIN / 100, y + 4); c.lineTo(x0 + w * ZMIN / 100, y + h + 12); c.moveTo(x0 + w * ZMAX / 100, y + 4); c.lineTo(x0 + w * ZMAX / 100, y + h + 12); c.stroke(); c.setLineDash([]);
+    const st = v < ZMIN ? 'BAJO' : v > ZMAX ? 'EXCESO' : 'ÓPTIMO'; const sc = v < ZMIN ? (v < 30 ? C.red : C.orange) : v > ZMAX ? C.yellow : C.green;
+    if (v > 0) { rr(c, x0, y + 8, Math.max(12, w * v / 100), h, 10); const g = c.createLinearGradient(x0, 0, x0 + w, 0); g.addColorStop(0, hexA(b.color, .6)); g.addColorStop(1, b.color); c.fillStyle = g; c.fill(); }
+    // "█░" estilo segmentado
+    for (let k = 1; k < 10; k++) { c.fillStyle = 'rgba(5,11,22,.55)'; c.fillRect(x0 + w * k / 10 - 1.5, y + 8, 3, h); }
+    txt(c, `${Math.round(v)}%`, x0 + w + 20, y + 34, { size: 26, weight: 900 });
+    txt(c, st, x0 + w + 20, y + 58, { size: 15, weight: 800, color: sc, ls: 1 });
+  });
+}
+function drawFood(c, W, H, s) {
+  const cx = W / 2, cy = W / 2, r = W * .42;
+  c.save();
+  if (s.hover) { c.shadowColor = C.teal; c.shadowBlur = 30; }
+  circle(c, cx, cy, r); const g = c.createRadialGradient(cx - r * .3, cy - r * .3, r * .1, cx, cy, r); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#d9e4ee'); c.fillStyle = g; c.fill();
+  c.shadowBlur = 0; c.lineWidth = s.hover ? 9 : 4; c.strokeStyle = s.hover ? C.teal : 'rgba(255,255,255,.9)'; c.stroke(); c.restore();
+  txt(c, s.e, cx, cy + r * .36, { size: r * 1.05, family: EMOJI, align: 'center', weight: 400 });
+  setFont(c, 24, 800); const tw = c.measureText(s.name).width + 26;
+  rr(c, cx - tw / 2, H - 46, tw, 40, 20); c.fillStyle = 'rgba(5,11,22,.88)'; c.fill(); c.strokeStyle = s.hover ? C.teal : 'rgba(255,255,255,.35)'; c.lineWidth = 2; c.stroke();
+  txt(c, s.name, cx, H - 17, { size: 24, weight: 800, align: 'center' });
+}
+function floatText(parent, pos, text, color) {
+  const el = canvasPlane(1.6, .26, (c, W, H) => {
+    c.lineWidth = 8; c.strokeStyle = 'rgba(5,11,22,.9)'; setFont(c, 44, 900); c.textAlign = 'center'; c.strokeText(text, W / 2, H * .7, W - 20);
+    txt(c, text, W / 2, H * .7, { size: 44, weight: 900, color, align: 'center', maxW: W - 20 });
+  }, { parent, pos: [pos.x, pos.y + .15, pos.z], order: 40, ppm: 260 });
+  el.object3D.rotation.set(0, Math.atan2(-pos.x, -pos.z), 0);
+  const y0 = el.object3D.position.y;
+  tween(1300, k => { el.object3D.position.y = y0 + k * .45; el.ui.mat.opacity = k < .6 ? 1 : 1 - (k - .6) / .4; }, ease.out).then(() => removeEl(el));
+}
+function burst(parent, pos, color) {
+  const n = 22, arr = new Float32Array(n * 3), vel = [];
+  for (let i = 0; i < n; i++) { arr[i * 3] = pos.x; arr[i * 3 + 1] = pos.y; arr[i * 3 + 2] = pos.z; vel.push(new THREE.Vector3(rand(-1, 1), rand(-.4, 1.4), rand(-1, 1)).multiplyScalar(1.6)); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: .07, map: dotTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  parent.object3D.add(pts); let t = 0;
+  const f = dt => {
+    t += dt; for (let i = 0; i < n; i++) { vel[i].y -= 3 * dt; arr[i * 3] += vel[i].x * dt; arr[i * 3 + 1] += vel[i].y * dt; arr[i * 3 + 2] += vel[i].z * dt; }
+    geo.attributes.position.needsUpdate = true; pts.material.opacity = 1 - t / .8;
+    if (t > .8) { tickers.delete(f); parent.object3D.remove(pts); geo.dispose(); pts.material.dispose(); }
+  };
+  tickers.add(f);
+}
+function setGazeFuse(ms) {
+  const g = $('#gaze'); g.setAttribute('cursor', 'fuseTimeout', ms);
+  g.setAttribute('animation__fuse', 'dur', ms);
+}
+async function runNutritionGame() {
+  const scr = makeScreen();
+  setHint('Seleccioná (clic / gatillo / mirada) los alimentos que tu cuerpo necesita · Mantené las barras en verde');
+  const N = { t: 0, dur: 60, level: 1, E: 30, H: 22, R: 18, items: new Set(), spawnT: 1, good: 0, bad: 0, missed: 0, over: 0, balance: 0, running: false, history: [] };
+  G.nutri = N;
+  const hud = canvasPlane(3.3, .76, drawHUD, { parent: scr, pos: [0, 2.72, -3.6], rot: [14, 0, 0], state: { left: N.dur, level: 1, E: N.E, H: N.H, R: N.R, good: 0, bad: 0 } });
+  appear(hud);
+  // cuenta regresiva
+  const cd = canvasPlane(1.4, .7, (c, W, H, s) => { txt(c, s.v, W / 2, H * .78, { size: s.v.length > 2 ? 110 : 190, weight: 900, color: s.v.length > 2 ? C.yellow : '#fff', align: 'center', shadow: 'rgba(0,0,0,.6)' }); }, { parent: scr, pos: [0, 1.65, -2.6], state: { v: '3' }, order: 50 });
+  for (const v of ['3', '2', '1', '¡YA!']) {
+    cd.redraw({ v }); Sound.beep(v.length > 1); cd.ui.mat.opacity = 1; cd.object3D.scale.setScalar(1.25);
+    await tween(700, k => { cd.object3D.scale.setScalar(1.25 - .25 * k); if (v.length > 1) cd.ui.mat.opacity = 1 - k; }, ease.out);
+    if (!scr.parentNode) return;
+    if (v.length === 1) await wait(150);
+  }
+  removeEl(cd);
+  Sound.beatStart(); N.running = true; setGazeFuse(750);
+  const banner = canvasPlane(2.4, .4, (c, W, H, s) => {
+    rr(c, 6, 6, W - 12, H - 12, (H - 12) / 2); c.fillStyle = 'rgba(5,11,22,.85)'; c.fill(); c.strokeStyle = C.yellow; c.lineWidth = 4; c.stroke();
+    txt(c, s.v, W / 2, H * .64, { size: 50, weight: 900, color: C.yellow, align: 'center' });
+  }, { parent: scr, pos: [0, 2.15, -3.2], state: { v: '' }, order: 45 });
+  banner.object3D.visible = false;
+  const showBanner = async v => { banner.redraw({ v }); banner.object3D.visible = true; banner.ui.mat.opacity = 0; await tween(300, k => banner.ui.mat.opacity = k); await wait(1300); await tween(400, k => banner.ui.mat.opacity = 1 - k); banner.object3D.visible = false; };
+  const CFG = { 1: { spawn: 1.45, speed: 1.0, badP: .26, decay: .45 }, 2: { spawn: 1.0, speed: 1.45, badP: .32, decay: .65 }, 3: { spawn: .68, speed: 1.95, badP: .38, decay: .85 } };
+  const byCat = { E: FOODS.filter(f => f.good && f.E >= Math.max(f.H, f.R)), H: FOODS.filter(f => f.good && f.H > f.E && f.H >= f.R), R: FOODS.filter(f => f.good && f.R > f.E && f.R > f.H) };
+  const badFoods = FOODS.filter(f => !f.good);
+  const spawn = cfg => {
+    const food = Math.random() < cfg.badP ? pick(badFoods) : pick(byCat[pick(['E', 'H', 'R'])]);
+    const dir = Math.random() < .5 ? 1 : -1, r = rand(3.4, 4.4), h = rand(.95, 2.25);
+    const it = { food, dir, r, h, a: -dir * 1.35, w: cfg.speed * rand(.85, 1.15) / r, ph: rand(0, 6), alive: true };
+    const el = canvasPlane(.62, .76, drawFood, { parent: scr, pos: [0, h, -r], clickable: true, order: 25, ppm: 300, state: { e: food.e, name: food.name, hover: false } });
+    el.addEventListener('mouseenter', () => { if (!it.alive) return; el.redraw({ hover: true }); scaleTo(el, 1.12); });
+    el.addEventListener('mouseleave', () => { if (!it.alive) return; el.redraw({ hover: false }); scaleTo(el, 1); });
+    el.addEventListener('click', () => { if (!it.alive || !N.running) return; const now = performance.now(); if (now - lastClick < 120) return; lastClick = now; collect(it); });
+    it.el = el; N.items.add(it); el.object3D.scale.setScalar(.01); scaleTo(el, 1);
+  };
+  const collect = it => {
+    it.alive = false; N.items.delete(it); const f = it.food; const p = it.el.object3D.position.clone();
+    const before = { E: N.E, H: N.H, R: N.R };
+    N.E = clamp(N.E + f.E, 0, 100); N.H = clamp(N.H + f.H, 0, 100); N.R = clamp(N.R + f.R, 0, 100);
+    if (f.good) {
+      N.good++; Sound.good(); burst(scr, p, 0x19e3b1);
+      const main = BARS.reduce((a, b) => (f[b.k] > f[a.k] ? b : a), BARS[0]);
+      const overflow = BARS.some(b => f[b.k] > 0 && before[b.k] + f[b.k] > ZMAX);
+      if (overflow) N.over++;
+      floatText(scr, p, overflow ? `+${f[main.k]} ${main.name} · ¡ojo con el exceso!` : `+${f[main.k]} ${main.name}`, overflow ? C.yellow : C.teal);
+    } else {
+      N.bad++; Sound.bad(); burst(scr, p, 0xff4d5e);
+      floatText(scr, p, `✖ ${f.tip}`, C.red);
+    }
+    removeEl(it.el);
+  };
+  let hudT = 0, lastLevel = 1;
+  const end = () => new Promise(res => { N._end = res; });
+  onTick((dt, time) => {
+    if (!N.running) return;
+    N.t += dt; const left = N.dur - N.t;
+    const lvl = N.t < 20 ? 1 : N.t < 40 ? 2 : 3; N.level = lvl;
+    if (lvl !== lastLevel) { lastLevel = lvl; Sound.level(); Sound.beatLevel(lvl); showBanner(lvl === 2 ? 'NIVEL 2 · ¡Más rápido!' : 'NIVEL 3 · ¡Máxima presión!'); setGazeFuse(lvl === 3 ? 550 : 650); }
+    const cfg = CFG[lvl];
+    N.E = clamp(N.E - cfg.decay * dt, 0, 100); N.H = clamp(N.H - cfg.decay * 1.15 * dt, 0, 100); N.R = clamp(N.R - cfg.decay * .75 * dt, 0, 100);
+    if ([N.E, N.H, N.R].every(v => v >= ZMIN && v <= ZMAX)) N.balance += dt;
+    N.spawnT -= dt; if (N.spawnT <= 0) { spawn(cfg); if (lvl === 3 && Math.random() < .3) spawn(cfg); N.spawnT = cfg.spawn * rand(.8, 1.2); }
+    N.items.forEach(it => {
+      it.a += it.dir * it.w * dt; const x = Math.sin(it.a) * it.r, z = -Math.cos(it.a) * it.r;
+      const o = it.el.object3D; o.position.set(x, it.h + Math.sin(time * 2.2 + it.ph) * .08, z); o.rotation.set(0, -it.a, Math.sin(time * 3 + it.ph) * .06);
+      if (Math.abs(it.a) > 1.4 && Math.sign(it.a) === it.dir) { it.alive = false; N.items.delete(it); if (it.food.good) N.missed++; vanish(it.el, 200); }
+    });
+    hudT -= dt; if (hudT <= 0) { hudT = .1; hud.redraw({ left, level: lvl, E: N.E, H: N.H, R: N.R, good: N.good, bad: N.bad }); }
+    if (left <= 0) { N.running = false; N._end && N._end(); }
+  }, scr);
+  await end();
+  Sound.beatStop(1.5); Sound.whistle([.7]); setGazeFuse(1300);
+  N.items.forEach(it => { it.alive = false; vanish(it.el, 250); }); N.items.clear();
+  hud.redraw({ left: 0, level: 3, E: N.E, H: N.H, R: N.R, good: N.good, bad: N.bad });
+  await showBanner('¡TIEMPO!');
+  showNutriResults();
+}
+function showNutriResults() {
+  const N = G.nutri; makeScreen();
+  const scores = BARS.map(b => zoneScore(N[b.k])); N.score = Math.round(scores.reduce((a, b) => a + b, 0) / 3);
+  N.stars = N.score >= 85 ? 3 : N.score >= 65 ? 2 : 1; N.done = true;
+  setHint('Recuperación nutricional completada');
+  const panel = canvasPlane(2.5, 1.66, (c, W, H) => {
+    panelBg(c, W, H, C.yellow);
+    txt(c, 'ETAPA 2 DE 3 · COMPLETADA', 52, 62, { size: 19, weight: 800, color: C.yellow, ls: 4 });
+    stepper(c, W - 410, 58, 370, 2, C.yellow);
+    txt(c, 'Recuperación nutricional', 52, 138, { size: 48, weight: 900 });
+    for (let i = 0; i < 3; i++) iconStar(c, 70 + i * 50, 186, 20, i < N.stars ? C.yellow : null, i < N.stars ? null : 'rgba(255,255,255,.35)');
+    txt(c, `Equilibrio ${N.score}%`, 230, 196, { size: 28, weight: 900, color: C.yellow });
+    txt(c, N.score >= 85 ? '¡Excelente balance!' : N.score >= 65 ? 'Buen trabajo, se puede afinar.' : 'Te faltó equilibrio: probá de nuevo.', 470, 196, { size: 21, weight: 600, color: C.muted });
+    BARS.forEach((b, i) => {
+      const y = 232 + i * 56, v = N[b.k], x0 = 330, w = W - x0 - 150;
+      b.icon(c, 70, y + 18, 15, b.color); txt(c, b.name, 100, y + 27, { size: 23, weight: 800 });
+      rr(c, x0, y + 4, w, 28, 10); c.fillStyle = 'rgba(255,255,255,.08)'; c.fill(); c.fillStyle = 'rgba(61,220,151,.2)'; c.fillRect(x0 + w * .6, y + 4, w * .3, 28);
+      rr(c, x0, y + 4, Math.max(10, w * v / 100), 28, 10); c.fillStyle = b.color; c.fill();
+      const st = v < ZMIN ? 'Bajo' : v > ZMAX ? 'Exceso' : 'Óptimo'; txt(c, `${Math.round(v)}% · ${st}`, x0 + w + 16, y + 27, { size: 20, weight: 800, color: v < ZMIN ? C.orange : v > ZMAX ? C.yellow : C.green });
+    });
+    const stats = [[N.good, 'elecciones prioritarias'], [N.bad, 'no prioritarias'], [N.missed, 'oportunidades perdidas'], [`${Math.round(N.balance)} s`, 'en equilibrio total']];
+    const cw = (W - 104 - 36) / 4;
+    stats.forEach(([v, l], i) => { const x = 52 + i * (cw + 12), y = 408; rr(c, x, y, cw, 84, 16); c.fillStyle = 'rgba(255,255,255,.05)'; c.fill(); txt(c, String(v), x + 18, y + 44, { size: 32, weight: 900 }); txt(c, l, x + 18, y + 70, { size: 16, weight: 600, color: C.muted }); });
+    wrap(c, 'Trabajo invisible: en las 2 horas post-partido combiná carbohidratos + proteínas y tomá líquido de a sorbos hasta reponer lo perdido (≈1,5 L por cada kg de peso perdido).', 52, 540, W - 104, 29, { size: 20, weight: 500, color: '#c9d6e6', italic: true });
+  }, { parent: screen, pos: [0, 1.86, -2.75] });
+  const b1 = button('REINTENTAR', { parent: screen, pos: [-.62, .9, -2.72], w: .95, h: .22, variant: 'secondary', onClick: () => runNutritionGame() });
+  const b2 = button('CONTINUAR · ETAPA 3  →', { parent: screen, pos: [.52, .9, -2.72], w: 1.2, h: .22, onClick: () => startCalm() });
+  appear(panel); appear(b1, 250); appear(b2, 320);
+}
+
+/* ---------- 5. Etapa 3: Vuelta a la calma ---------- */
+const Input = { holding: false, used: false };
+function setHold(v) { Input.holding = v; if (v) Input.used = true; }
+async function startCalm() {
+  Sound.beatStop(1);
+  await transition(async () => {
+    setEnv('stadium', 'calm'); makeStage(); makeScreen();
+    Sound.padStart(.55);
+    showCalmIntro();
+  }, { card: { kicker: 'ETAPA 3 DE 3', title: 'Vuelta a la calma', sub: 'El estadio se vació. El ruido se apagó.', color: C.purple }, hold: 2400, fadeMs: 1600 });
+}
+function showCalmIntro() {
+  makeScreen();
+  setHint('Etapa 3 · Vuelta a la calma');
+  const panel = canvasPlane(2.4, 1.5, (c, W, H) => {
+    panelBg(c, W, H, C.purple);
+    txt(c, 'ETAPA 3 DE 3', 52, 62, { size: 19, weight: 800, color: C.purple, ls: 4 });
+    stepper(c, W - 410, 58, 370, 2, C.purple);
+    txt(c, 'Vuelta a la calma', 52, 146, { size: 54, weight: 900 });
+    wrap(c, 'El movimiento baja, la música baja. Volviste a la cancha, pero ahora está en silencio. Tu sistema nervioso también necesita recuperarse.', 52, 196, W - 104, 33, { size: 23, weight: 500, color: '#c9d6e6' });
+    txt(c, 'Seguí el ritmo de la esfera luminosa:', 52, 300, { size: 24, weight: 800 });
+    txt(c, 'INHALÁ', 52, 350, { size: 28, weight: 900, color: C.teal }); txt(c, 'cuando la esfera crece (4 s)', 180, 350, { size: 22, weight: 600, color: C.text });
+    txt(c, 'EXHALÁ', 52, 390, { size: 28, weight: 900, color: C.purple }); txt(c, 'cuando la esfera se achica (6 s)', 180, 390, { size: 22, weight: 600, color: C.text });
+    wrap(c, 'Web: mantené presionado clic o ESPACIO mientras inhalás y soltá al exhalar. VR: mantené el gatillo. Solo con la mirada: respirá con la esfera.', 52, 448, W - 104, 28, { size: 19, weight: 500, color: C.muted });
+    txt(c, '6 ciclos · 1 minuto', 52, H - 34, { size: 19, weight: 700, color: C.purple });
+  }, { parent: screen, pos: [0, 1.8, -2.75] });
+  const b = button('COMENZAR RESPIRACIÓN', { parent: screen, pos: [0, .92, -2.72], w: 1.2, h: .22, onClick: () => runBreathing() });
+  appear(panel); appear(b, 300);
+}
+async function runBreathing() {
+  const scr = makeScreen();
+  setHint('INHALÁ cuando la esfera crece · EXHALÁ cuando se achica · Mantené clic/ESPACIO/gatillo mientras inhalás');
+  const IN = 4, OUT = 6, CYCLES = 6, TOTAL = (IN + OUT) * CYCLES;
+  const S = { t: 0, samples: 0, match: 0, usedAtStart: Input.used, hr: 104, cycle: 0, phase: null };
+  Input.used = false;
+  // esfera luminosa
+  const orbG = new THREE.Group(); orbG.position.set(0, 1.55, -2.9); scr.object3D.add(orbG);
+  const coreM = new THREE.MeshBasicMaterial({ color: 0x9ff0ff, transparent: true, opacity: .92 });
+  const core = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), coreM); orbG.add(core);
+  const shellM = new THREE.MeshBasicMaterial({ color: 0x19e3b1, transparent: true, opacity: .18, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1.35, 32, 24), shellM); orbG.add(shell);
+  const glow = glowSprite(0x19e3b1, 3, .8); orbG.add(glow);
+  const halo = glowSprite(0xb388ff, 7, .25); orbG.add(halo);
+  const n = 160, pp = new Float32Array(n * 3), pd = [];
+  for (let i = 0; i < n; i++) pd.push({ th: rand(0, Math.PI * 2), ph: Math.acos(rand(-1, 1)), r: rand(1.4, 2.2), s: rand(.2, .6) });
+  const pgeo = new THREE.BufferGeometry(); pgeo.setAttribute('position', new THREE.BufferAttribute(pp, 3));
+  const pts = new THREE.Points(pgeo, new THREE.PointsMaterial({ color: 0xcfe9ff, size: .035, map: dotTex, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending })); orbG.add(pts);
+  orbG.scale.setScalar(.001);
+  const label = canvasPlane(1.8, .42, (c, W, H, s) => {
+    txt(c, s.word, W / 2, H * .62, { size: 92, weight: 900, color: s.col, align: 'center', ls: 10, shadow: hexA(s.col, .7) });
+    if (s.sec) txt(c, s.sec, W / 2, H * .92, { size: 26, weight: 700, color: C.muted, align: 'center' });
+  }, { parent: scr, pos: [0, 2.5, -2.9], state: { word: 'PREPARATE', col: '#ffffff', sec: '' }, order: 30 });
+  const info = canvasPlane(2.4, .34, (c, W, H, s) => {
+    rr(c, 6, 6, W - 12, H - 12, (H - 12) / 2); c.fillStyle = 'rgba(5,11,22,.72)'; c.fill(); c.strokeStyle = 'rgba(179,136,255,.5)'; c.lineWidth = 2; c.stroke();
+    for (let i = 0; i < CYCLES; i++) { circle(c, 70 + i * 34, H / 2, 10); c.fillStyle = i < s.cycle ? C.purple : i === s.cycle ? 'rgba(179,136,255,.45)' : 'rgba(255,255,255,.15)'; c.fill(); }
+    txt(c, `Ciclo ${Math.min(s.cycle + 1, CYCLES)} de ${CYCLES}`, 70 + CYCLES * 34 + 10, H / 2 + 9, { size: 25, weight: 800 });
+    txt(c, s.sync, W * .6, H / 2 + 9, { size: 25, weight: 800, color: C.teal, align: 'center' });
+    iconHeart(c, W - 190, H / 2, 16, C.red); txt(c, `${Math.round(s.hr)} lpm`, W - 162, H / 2 + 9, { size: 25, weight: 800 });
+  }, { parent: scr, pos: [0, .72, -2.8], rot: [-12, 0, 0], state: { cycle: 0, sync: 'Sincronía —', hr: S.hr } });
+  appear(label); appear(info, 200);
+  await tween(1500, k => orbG.scale.setScalar(Math.max(.001, .32 * k)), ease.out);
+  label.redraw({ word: 'PREPARATE', sec: 'Soltá los hombros · Apoyá bien los pies' }); await wait(2200);
+  if (!scr.parentNode) return;
+  const c1 = new THREE.Color(0x9ff0ff), c2 = new THREE.Color(0xd9c4ff), tmp = new THREE.Color();
+  const g1 = new THREE.Color(0x19e3b1), g2 = new THREE.Color(0xb388ff);
+  let infoT = 0;
+  const hapt = () => { ['#handL', '#handR'].forEach(id => { try { const tc = $(id).components['tracked-controls']; const ha = tc && tc.controller && tc.controller.gamepad && tc.controller.gamepad.hapticActuators; if (ha && ha[0]) ha[0].pulse(.25, 60); } catch (e) { } }); };
+  const finished = new Promise(res => {
+    onTick((dt, time) => {
+      S.t += dt; const t = Math.min(S.t, TOTAL);
+      const cyc = Math.min(CYCLES - 1, Math.floor(t / (IN + OUT))); const ph = t - cyc * (IN + OUT); const inhale = ph < IN;
+      const phaseKey = cyc + (inhale ? 'i' : 'e');
+      if (phaseKey !== S.phase && S.t < TOTAL) { S.phase = phaseKey; S.cycle = cyc; Sound.breath(inhale, inhale ? IN : OUT); hapt(); }
+      const k = inhale ? ease.sine(ph / IN) : 1 - ease.sine((ph - IN) / OUT);
+      const sc = lerp(.32, .74, k); orbG.scale.setScalar(sc);
+      tmp.copy(c2).lerp(c1, k); coreM.color.copy(tmp); tmp.copy(g2).lerp(g1, k); shellM.color.copy(tmp); glow.material.color.copy(tmp);
+      glow.scale.setScalar(2.6 + k * 1.2); halo.material.opacity = .15 + k * .2;
+      pd.forEach((d, i) => { d.th += dt * d.s * .4; const r = d.r * (inhale ? lerp(1.25, 1, ph / IN) : lerp(1, 1.25, (ph - IN) / OUT)); pp[i * 3] = Math.sin(d.ph) * Math.cos(d.th) * r; pp[i * 3 + 1] = Math.cos(d.ph) * r; pp[i * 3 + 2] = Math.sin(d.ph) * Math.sin(d.th) * r; });
+      pgeo.attributes.position.needsUpdate = true;
+      const phStart = inhale ? ph : ph - IN; if (phStart > .6) { S.samples++; if (Input.holding === inhale) S.match++; }
+      S.hr = lerp(104, 64, ease.out(t / TOTAL)) + Math.sin(time * 1.3) * 1.2;
+      infoT -= dt;
+      if (infoT <= 0) {
+        infoT = .12; const secs = Math.ceil(inhale ? IN - ph : IN + OUT - ph);
+        label.redraw({ word: inhale ? 'INHALÁ' : 'EXHALÁ', col: inhale ? C.teal : C.purple, sec: `${secs}` });
+        const sync = Input.used && S.samples > 0 ? `Sincronía ${Math.round(S.match / S.samples * 100)}%` : 'Modo guiado';
+        info.redraw({ cycle: cyc, sync, hr: S.hr });
+      }
+      applyLight(LIGHT.calm, Object.assign({}, LIGHT.calm, { flood: .06, hemi: .32 }), t / TOTAL);
+      if (S.t >= TOTAL) res();
+    }, scr);
+  });
+  Sound.padLevel(.32, 60);
+  await finished;
+  if (!scr.parentNode) return;
+  G.calm = { cycles: CYCLES, guided: !Input.used, sync: S.samples ? Math.round(S.match / S.samples * 100) : 0, hr: Math.round(S.hr), done: true };
+  info.redraw({ cycle: CYCLES, sync: G.calm.guided ? 'Modo guiado' : `Sincronía ${G.calm.sync}%`, hr: S.hr });
+  label.redraw({ word: 'MUY BIEN', col: '#ffffff', sec: 'Tu respiración y tu pulso volvieron a la calma' });
+  await tween(2200, k => { orbG.scale.setScalar(lerp(.32, .001, k)); orbG.position.y = 1.55 + k * .6; }, ease.in);
+  await wait(800);
+  vanish(label, 800); vanish(info, 800);
+  // el entorno vuelve progresivamente a la cancha, ahora completamente tranquila
+  setHint('');
+  const skyFrom = ENV.sky.cur;
+  await tween(5200, k => { ENV.sky.blend(skyFrom, SKY.dawn, k); applyLight(Object.assign({}, LIGHT.calm, { flood: .06, hemi: .32 }), LIGHT.dawn, k); }, ease.inOut);
+  ENV.stadium.mode('done');
+  showFinal();
+}
+
+/* ---------- 6. Final ---------- */
+function showFinal() {
+  const scr = makeScreen();
+  Sound.finalChord(); Sound.padLevel(.4, 3);
+  setHint('Recuperación completada · Podés volver a jugar con nuevas situaciones');
+  const P = G.phys || { sits: [], firstTry: 0 }, N = G.nutri || { score: 0, stars: 1, good: 0 }, K = G.calm || { cycles: 6, guided: true, hr: 64 };
+  const rows = [
+    ['Recuperación física', `${P.sits.length} situaciones resueltas · ${P.firstTry}/3 a la primera · ${[...new Set(P.sits.map(s => TREAT[s.correct].label.toLowerCase()))].join(', ')}`, C.red],
+    ['Recuperación nutricional', `Equilibrio ${N.score}% · ${'★'.repeat(N.stars)}${'☆'.repeat(3 - N.stars)} · ${N.good} elecciones prioritarias`, C.yellow],
+    ['Vuelta a la calma', `${K.cycles} ciclos de respiración · ${K.guided ? 'modo guiado' : 'sincronía ' + K.sync + '%'} · FC ${K.hr} lpm`, C.purple],
+  ];
+  const panel = canvasPlane(2.7, 1.78, (c, W, H) => {
+    panelBg(c, W, H, C.green);
+    txt(c, 'PIKI RECOVERY · FÚTBOL', 56, 64, { size: 19, weight: 800, color: C.green, ls: 4 });
+    stepper(c, W - 420, 60, 380, 3, C.green);
+    circle(c, 100, 158, 42); c.fillStyle = C.green; c.fill(); iconCheck(c, 100, 158, 20, '#04131f', 8);
+    txt(c, 'RECUPERACIÓN COMPLETADA', 164, 178, { size: 56, weight: 900 });
+    txt(c, 'Terminaste el trabajo invisible. Tu cuerpo está listo para volver a entrenar.', 58, 244, { size: 23, weight: 600, color: C.teal });
+    rows.forEach(([name, det, col], i) => {
+      const y = 276 + i * 100;
+      rr(c, 56, y, W - 112, 86, 18); c.fillStyle = 'rgba(255,255,255,.05)'; c.fill(); c.strokeStyle = hexA(col, .4); c.lineWidth = 2; c.stroke();
+      c.save(); c.shadowColor = C.green; c.shadowBlur = 16; circle(c, 100, y + 43, 17); c.fillStyle = '#2ecc71'; c.fill(); c.restore();
+      txt(c, name, 136, y + 38, { size: 28, weight: 800 });
+      txt(c, det, 136, y + 68, { size: 18, weight: 600, color: C.muted, maxW: W - 460 });
+      txt(c, 'Completada', W - 84, y + 52, { size: 26, weight: 900, color: '#2ecc71', align: 'right' });
+    });
+    txt(c, '“Nadie lo ve. Pero también es entrenamiento.”', W / 2, H - 42, { size: 27, weight: 600, color: C.orange, align: 'center', italic: true });
+  }, { parent: scr, pos: [0, 1.9, -2.85] });
+  const b1 = button('JUGAR DE NUEVO', { parent: scr, pos: [-.6, .88, -2.8], w: 1.05, h: .22, onClick: () => startMatch() });
+  const b2 = button('VOLVER AL INICIO', { parent: scr, pos: [.6, .88, -2.8], w: 1.05, h: .22, variant: 'secondary', onClick: () => goHome() });
+  appear(panel, 0, 900); appear(b1, 500); appear(b2, 600);
+  // partículas doradas suaves
+  const n = 140, arr = new Float32Array(n * 3), d = [];
+  for (let i = 0; i < n; i++) { d.push({ x: rand(-8, 8), y: rand(0, 6), z: rand(-10, 2), v: rand(.05, .2), a: rand(0, 6) }); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffe3a3, size: .06, map: dotTex, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  scr.object3D.add(pts);
+  onTick((dt, t) => { d.forEach((p, i) => { p.y += p.v * dt; if (p.y > 7) p.y = 0; arr[i * 3] = p.x + Math.sin(t * .5 + p.a) * .3; arr[i * 3 + 1] = p.y; arr[i * 3 + 2] = p.z; }); geo.attributes.position.needsUpdate = true; }, scr);
+}
+async function goHome() {
+  await transition(() => { Sound.padStop(2); Sound.crowdStop(1); setEnv('hub'); showWelcome(); }, { fadeMs: 800 });
+}
+
+/* ===================================================================
+   ARRANQUE
+   =================================================================== */
+AFRAME.registerComponent('piki-game', {
+  init() {
+    this.time = 0;
+    const go = () => boot(this.el).catch(e => console.error(e));
+    if (this.el.hasLoaded) go(); else this.el.addEventListener('loaded', go, { once: true });
+  },
+  tick(t, dt) {
+    if (!ENV.ready) return;
+    updateTweens(Math.min(dt || 16, 500));
+    dt = Math.min(dt || 16, 60); const s = dt / 1000; this.time += s;
+    tickers.forEach(f => { try { f(s, this.time); } catch (e) { console.error(e); tickers.delete(f); } });
+    if (G.env === 'hub') ENV.hub.update(s, this.time);
+    if (G.env === 'stadium') ENV.stadium.update(s, this.time);
+  },
+});
+
+async function boot(scn) {
+  sceneEl = scn; scene3 = scn.object3D; camEl = $('#cam'); rigEl = $('#rig'); uiRoot = $('#ui');
+  try { await Promise.race([Promise.all([document.fonts.load('900 40px Montserrat'), document.fonts.load('600 40px Montserrat'), document.fonts.load('italic 600 40px Montserrat')]), wait(3000)]); } catch (e) { }
+  buildSky(); buildLights(); buildHub(); buildStadium(); buildLocker();
+  // esfera de fundido y cartel de transición (pegados a la cámara)
+  fadeMesh = new THREE.Mesh(new THREE.SphereGeometry(.4, 24, 16), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 1, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
+  fadeMesh.renderOrder = 10000; camEl.object3D.add(fadeMesh);
+  const cardHolder = document.createElement('a-entity'); camEl.appendChild(cardHolder);
+  cardEl = canvasPlane(1.5, .56, drawCard, { parent: cardHolder, pos: [0, 0, -1.1], order: 10001, depthTest: false, ppm: 700, state: {} });
+  cardEl.object3D.visible = false;
+
+  // Controles de entrada
+  const setGaze = on => { const g = $('#gaze'); g.setAttribute('raycaster', 'enabled', on); g.setAttribute('visible', on); };
+  sceneEl.addEventListener('enter-vr', () => { $('#hud').style.display = 'none'; const dev = AFRAME.utils.device; if (dev.isMobile() && !dev.isMobileVR()) setGaze(true); });
+  sceneEl.addEventListener('exit-vr', () => { $('#hud').style.display = ''; setGaze(false); });
+  ['#handL', '#handR'].forEach(id => {
+    const h = $(id);
+    h.addEventListener('controllerconnected', () => setGaze(false));
+    h.addEventListener('triggerdown', () => setHold(true)); h.addEventListener('triggerup', () => setHold(false));
+    h.addEventListener('gripdown', () => setHold(true)); h.addEventListener('gripup', () => setHold(false));
+  });
+  window.addEventListener('mousedown', e => { if (e.button === 0) setHold(true); });
+  window.addEventListener('mouseup', () => setHold(false));
+  window.addEventListener('touchstart', () => setHold(true), { passive: true });
+  window.addEventListener('touchend', () => setHold(false));
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) setHold(true); }
+    if (e.key === 'm' || e.key === 'M') toggleMute();
+    if (e.key === 'r' || e.key === 'R') recenter();
+  });
+  window.addEventListener('keyup', e => { if (e.code === 'Space') setHold(false); });
+  const toggleMute = () => { Sound.setMuted(!Sound.isMuted()); $('#btnMute').textContent = Sound.isMuted() ? '🔇 Silencio' : '🔊 Sonido'; };
+  const recenter = () => { if (!stage) return; const { yaw, pos } = camWorld(); stage.object3D.rotation.y = yaw; stage.object3D.position.x = pos.x; stage.object3D.position.z = pos.z; };
+  $('#btnMute').addEventListener('click', e => { e.stopPropagation(); Sound.init(); toggleMute(); });
+  $('#btnRecenter').addEventListener('click', e => { e.stopPropagation(); recenter(); });
+  ['mousedown', 'touchstart'].forEach(ev => $('#controls').addEventListener(ev, e => e.stopPropagation()));
+  document.addEventListener('pointerdown', () => Sound.init(), { once: true });
+
+  ENV.ready = true;
+  // Arranque (con atajo de pruebas ?etapa=...)
+  const q = new URLSearchParams(location.search).get('etapa');
+  G.match = newMatch();
+  if (q === 'cancha') { setEnv('stadium', 'match'); makeStage(); showArrival(); }
+  else if (q === 'fisica') { setEnv('stadium', 'match'); makeStage(); showPhysIntro(); }
+  else if (q === 'situacion') { setEnv('stadium', 'match'); makeStage(); G.phys = { sits: genSituations(G.match), idx: 0 }; showSituation(0); }
+  else if (q === 'nutricion') { setEnv('locker'); makeStage(); showNutriIntro(); }
+  else if (q === 'minijuego') { setEnv('locker'); makeStage(); runNutritionGame(); }
+  else if (q === 'calma') { setEnv('stadium', 'calm'); makeStage(); showCalmIntro(); }
+  else if (q === 'respiracion') { setEnv('stadium', 'calm'); makeStage(); runBreathing(); }
+  else if (q === 'final') { G.phys = { sits: genSituations(G.match), firstTry: 2 }; G.nutri = { score: 82, stars: 2, good: 19 }; G.calm = { cycles: 6, guided: false, sync: 86, hr: 64 }; setEnv('stadium', 'dawn'); ENV.stadium.mode('done'); makeStage(); showFinal(); }
+  else if (q === 'deporte') { setEnv('hub'); makeStage(); showSport(); }
+  else { setEnv('hub'); showWelcome(); }
+  $('#loader').style.opacity = 0; setTimeout(() => $('#loader').remove(), 900);
+  fade(0, 1200);
+}
+})();
+</script>
+</body>
+</html>
