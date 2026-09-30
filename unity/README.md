@@ -79,6 +79,9 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 
 ## Si algo se ve raro
 
+* **Errores `'Text'` o `'Image'` could not be found:** falta el paquete *Unity UI*. `Setup/PikiSetup.cs` lo instala
+  solo al abrir el proyecto. Si no puede, instalalo desde *Window ▸ Package Manager ▸ Unity Registry ▸ Unity UI*.
+
 * **Todo rosa o magenta:** el proyecto no es URP ni Built-in estándar. Los scripts usan
   `Universal Render Pipeline/Lit` (o `Standard`) y `Sprites/Default`.
 * **En un build faltan partes, pero en el editor se ven bien:** agregá `Sprites/Default` y
@@ -93,6 +96,7 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 | Archivo | Qué hace |
 |---|---|
 | `PikiGame.cs` | Flujo completo, todas las pantallas y el paso entre escenas |
+| `Setup/PikiSetup.cs` | Instala solo el paquete Unity UI si falta |
 | `Editor/PikiSceneBuilder.cs` | Menú *Piki Recovery*: construye y guarda las 4 escenas |
 | `PikiRig.cs` | Cámara 360°, giroscopio, VR (cabeza y controles), puntero, mirada y "mantener presionado" |
 | `PikiEnv.cs` | Cielo, luces, hub de inicio, estadio (tribunas, LED, arcos, torres, marcador, jugadores) y vestuario |
