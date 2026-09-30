@@ -7,7 +7,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.UI;
 
 namespace Piki
 {
@@ -51,7 +50,7 @@ namespace Piki
         [HideInInspector] public Light dirLight; [HideInInspector] public MeshRenderer skyR; [HideInInspector] public Renderer starsR; [HideInInspector] public GameObject sun;
         [HideInInspector] public List<Renderer> floodGlows = new List<Renderer>(), floodPanels = new List<Renderer>();
         [HideInInspector] public Renderer roofLight, standR; [HideInInspector] public Texture2D crowdFull, crowdEmpty; [HideInInspector] public Transform players;
-        [HideInInspector] public Text sbTitle, sbHome, sbAway, sbScore, sbFoot, sbBig1, sbBig2;
+        [HideInInspector] public UIText sbTitle, sbHome, sbAway, sbScore, sbFoot, sbBig1, sbBig2;
         Texture2D skyTex; float giTimer;
 
         public void Create(bool hub = true, bool stadium = true, bool locker = true)
@@ -340,14 +339,11 @@ namespace Piki
             var back = Build.Prim(PrimitiveType.Cube, S, pos + Quaternion.Euler(0, ry, 0) * new Vector3(0, -.05f, .15f), new Vector3(len, 1, .25f), Mat.Lit(Pal.Hex("#0a0f14")));
             back.transform.localEulerAngles = new Vector3(0, ry, 0);
             var c = UI.Canvas(S, pos, len, .9f, new Vector3(0, ry, 0), "LED", .01f, 2f);
-            c.gameObject.AddComponent<RectMask2D>();
             UI.Img(c, 0, 0, UI.Wd(c), UI.Ht(c), null, Pal.Hex("#04080e"));
-            string seg = "<color=#19e3b1>PIKI RECOVERY</color>   <color=#19e3b1>•</color>   EL TRABAJO INVISIBLE   <color=#19e3b1>•</color>   <color=#ffd93d>RECUPERÁ · HIDRATÁ · RESPIRÁ</color>   <color=#19e3b1>•</color>   ";
-            float segW = UI.TextWidth(seg.Replace("<color=#19e3b1>", "").Replace("<color=#ffd93d>", "").Replace("</color>", ""), 56, true);
-            float ledPeriod = Mathf.Max(1, segW);
-            int reps = Mathf.CeilToInt(UI.Wd(c) / segW) + 2; var sb = new System.Text.StringBuilder(); for (int i = 0; i < reps; i++) sb.Append(seg);
-            var t = UI.T(c, sb.ToString(), 0, 66, 56, Color.white, true, UI.Al.L, segW * reps + 100);
-            t.gameObject.AddComponent<LedScroll>().period = ledPeriod;
+            string seg = "PIKI RECOVERY   •   EL TRABAJO INVISIBLE   •   RECUPERÁ · HIDRATÁ · RESPIRÁ   •   ";
+            float cw = UI.TextWidth(seg, 56, true) / seg.Length; int vis = Mathf.Max(10, Mathf.FloorToInt((UI.Wd(c) - 40) / Mathf.Max(1, cw)));
+            var t = UI.T(c, "", 20, 66, 56, Pal.Teal, true);
+            var led = t.gameObject.AddComponent<LedScroll>(); led.content = seg; led.visible = vis; led.Apply();
         }
 
         void BuildGoal(Transform S, float z, int dir, Material postM, Material netMat)
@@ -399,8 +395,8 @@ namespace Piki
             sbTitle.gameObject.SetActive(match); sbHome.gameObject.SetActive(match); sbAway.gameObject.SetActive(match); sbScore.gameObject.SetActive(match); sbFoot.gameObject.SetActive(match || done);
             sbBig1.gameObject.SetActive(!match); sbBig2.gameObject.SetActive(!match);
             if (match) { sbFoot.text = foot ?? "El esfuerzo terminó. La recuperación empieza."; }
-            else if (done) { sbBig1.text = "RECUPERACIÓN"; sbBig1.color = Pal.Teal; sbBig2.text = "COMPLETADA"; sbFoot.text = "<color=#ffd93d>El trabajo invisible también es entrenamiento</color>"; }
-            else { sbBig1.text = "VUELTA A LA CALMA"; sbBig1.color = Pal.Purple; sbBig2.text = "<size=60>Inhalá · Exhalá · Soltá</size>"; }
+            else if (done) { sbBig1.fontSize = 96; sbBig1.text = "RECUPERACIÓN"; sbBig1.color = Pal.Teal; sbBig1.FitWidth(1040); sbBig2.fontSize = 96; sbBig2.text = "COMPLETADA"; sbFoot.text = "<color=#ffd93d>El trabajo invisible también es entrenamiento</color>"; }
+            else { sbBig1.fontSize = 96; sbBig1.text = "VUELTA A LA CALMA"; sbBig1.color = Pal.Purple; sbBig1.FitWidth(1040); sbBig2.fontSize = 70; sbBig2.text = "Inhalá · Exhalá · Soltá"; sbBig2.FitWidth(1040); }
         }
         public void SetStadiumMode(StadiumMode m)
         {

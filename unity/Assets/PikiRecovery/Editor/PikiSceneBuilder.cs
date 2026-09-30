@@ -80,7 +80,7 @@ namespace Piki.EditorTools
             {
                 if (AssetDatabase.IsValidFolder(GenDir)) AssetDatabase.DeleteAsset(GenDir);
                 EnsureFolder(Root, "Generated"); EnsureFolder(Root, "Scenes");
-                Spr.ClearCache(); Tex.ClearCache();
+                Spr.ClearCache(); Tex.ClearCache(); UI.ClearCache();
                 Persist.Save = SaveAsset;
                 for (int i = 0; i < Defs.Length; i++)
                 {

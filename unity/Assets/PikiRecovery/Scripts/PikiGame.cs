@@ -13,7 +13,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
 using Random = UnityEngine.Random;
 
 namespace Piki
@@ -41,8 +40,8 @@ namespace Piki
 
         // Referencias guardadas en la escena por el constructor (menú Piki Recovery)
         [SerializeField] PikiRig rig; [SerializeField] PikiEnv env;
-        [SerializeField] MeshRenderer fadeR; [SerializeField] RectTransform card; [SerializeField] Text cardKicker, cardTitle, cardSub;
-        [SerializeField] Text hintText; [SerializeField] GameObject overlay; [SerializeField] GameObject previewRoot;
+        [SerializeField] MeshRenderer fadeR; [SerializeField] UIPanel card; [SerializeField] UIText cardKicker, cardTitle, cardSub;
+        [SerializeField] PikiHud hud; [SerializeField] GameObject previewRoot;
 
         PikiAudio au; Material fadeM; bool leaving;
         Transform stage, screen; float floorY; PikiBody body;
@@ -145,7 +144,7 @@ namespace Piki
                 default: ShowWelcome(); break;
             }
         }
-        void Update() { if (overlay != null && rig != null) overlay.SetActive(!rig.XR); }
+        void Update() { if (hud != null && rig != null) hud.hidden = rig.XR; }
 
         /* Pasa a otra escena (con fundido y cartel). Si la escena no está en Build Settings,
            cambia de entorno dentro de la misma escena. */
@@ -173,7 +172,7 @@ namespace Piki
         }
         Transform NewScreen() { if (screen != null) Build.Kill(screen.gameObject); screen = Build.Group("Pantalla", stage); return screen; }
         void Recenter() { if (stage == null) return; var hp = rig.HeadPos; stage.position = new Vector3(hp.x, stage.position.y, hp.z); stage.rotation = Quaternion.Euler(0, rig.Yaw, 0); }
-        RectTransform Panel(Vector3 pos, float w, float h, Color accent, Transform parent = null)
+        UIPanel Panel(Vector3 pos, float w, float h, Color accent, Transform parent = null)
         {
             var c = UI.Canvas(parent ?? screen, pos, w, h); UI.PanelBg(c, accent); return c;
         }
@@ -181,7 +180,7 @@ namespace Piki
         {
             return UI.Button(parent ?? screen, pos, w, h, label, style, a);
         }
-        void Hint(string s) { if (hintText != null) { hintText.text = s; hintText.transform.parent.gameObject.SetActive(!string.IsNullOrEmpty(s)); } }
+        void Hint(string s) { if (hud != null) hud.hint = s; }
 
         void BuildFadeAndCard()
         {
@@ -189,30 +188,16 @@ namespace Piki
             var fm = Mat.Unlit(new Color(0, 0, 0, 0), null, 4000);
             var f = Build.MeshObj("Fundido", cam, Build.Wall(1, 1), fm); f.transform.localPosition = new Vector3(0, 0, 1.3f); f.transform.localScale = new Vector3(7, 7, 1);
             fadeR = f.GetComponent<MeshRenderer>(); fadeR.sortingOrder = 40; f.SetActive(false);
-            card = UI.Canvas(cam, new Vector3(0, 0, 1.1f), 1.5f, .56f, Vector3.zero, "Cartel");
-            card.GetComponent<Canvas>().sortingOrder = 50;
+            card = UI.Canvas(cam, new Vector3(0, 0, 1.1f), 1.5f, .56f, Vector3.zero, "Cartel", UI.S, 3, 4001, 30000);
             float W = UI.Wd(card), H = UI.Ht(card);
             cardKicker = UI.T(card, "", W / 2, H * .3f, 26, Pal.Teal, true, UI.Al.C, W);
             cardTitle = UI.T(card, "", W / 2, H * .6f, 70, Color.white, true, UI.Al.C, W);
             cardSub = UI.T(card, "", W / 2, H * .84f, 26, Pal.Muted, false, UI.Al.C, W);
-            // El fundido y el cartel se dibujan por encima de todo lo demás
-            var cm = new Material(Canvas.GetDefaultCanvasMaterial()); cm.renderQueue = 4001; Persist.Keep(cm, "CartelUI");
-            foreach (var g in card.GetComponentsInChildren<Graphic>(true)) g.material = cm;
             card.gameObject.SetActive(false);
         }
         void BuildOverlay()
         {
-            overlay = new GameObject("Overlay (pantalla)", typeof(RectTransform));
-            var c = overlay.AddComponent<Canvas>(); c.renderMode = RenderMode.ScreenSpaceOverlay; c.sortingOrder = 10;
-            var sc = overlay.AddComponent<CanvasScaler>(); sc.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; sc.referenceResolution = new Vector2(1280, 720); sc.matchWidthOrHeight = .5f;
-            var root = (RectTransform)overlay.transform;
-            var brand = UI.Rect(root, 16, 14, 400, 50); UI.Icon(brand, Spr.Circle, 16, 18, 15, Pal.Teal); UI.T(brand, "P", 16, 25, 17, Pal.Ink, true, UI.Al.C, 30);
-            UI.T(brand, "PIKI RECOVERY", 42, 20, 15, Pal.Text, true); UI.T(brand, "Fútbol · El trabajo invisible", 42, 38, 12, Pal.Muted);
-            var help = UI.Rect(root, 0, 14, 0, 30); help.anchorMin = help.anchorMax = new Vector2(1, 1); help.pivot = new Vector2(1, 1); help.anchoredPosition = new Vector2(-16, -14); help.sizeDelta = new Vector2(420, 30);
-            UI.T(help, "M: sonido · R: recentrar · flechas: mirar", 420, 20, 13, Pal.Muted, true, UI.Al.R, 420);
-            var hint = UI.Rect(root, 0, 0, 900, 44); hint.anchorMin = hint.anchorMax = new Vector2(.5f, 0); hint.pivot = new Vector2(.5f, 0); hint.anchoredPosition = new Vector2(0, 18);
-            UI.Round(hint, 0, 0, 900, 44, new Color(.02f, .04f, .09f, .72f), 22);
-            hintText = UI.T(hint, "", 450, 29, 15, Pal.Text, true, UI.Al.C, 880);
+            hud = new GameObject("Textos en pantalla (PC y celular)").AddComponent<PikiHud>();
         }
 
         IEnumerator Fade(float to, float t)
@@ -260,7 +245,7 @@ namespace Piki
             }
             UI.T(p, "Mirá a tu alrededor · Elegí con clic, toque, gatillo o sosteniendo la mirada", W / 2, H - 38, 19, Pal.Muted, false, UI.Al.C, W);
             var b = Btn("COMENZAR", new Vector3(0, .95f, 2.66f), 1.05f, .23f, UI.Style.Primary, ShowSport);
-            UI.Appear(p); UI.Appear((RectTransform)b.transform, .25f);
+            UI.Appear(p); UI.Appear(b, .25f);
         }
 
         /* ===================================================================
@@ -334,7 +319,7 @@ namespace Piki
             }
             UI.Wrap(p, "Lo que hagas en las próximas horas es trabajo invisible: nadie lo ve, pero define cómo llegás al próximo entrenamiento y al próximo partido.", 56, 478, W - 112, 32, 23, Pal.Body);
             var b = Btn("INICIAR RECUPERACIÓN  →", new Vector3(0, .9f, 2.76f), 1.3f, .23f, UI.Style.Primary, ShowPhysIntro);
-            UI.Appear(p, 2.8f, .7f); UI.Appear((RectTransform)b.transform, 3.3f);
+            UI.Appear(p, 2.8f, .7f); UI.Appear(b, 3.3f);
         }
 
         /* ===================================================================
@@ -361,7 +346,7 @@ namespace Piki
             UI.Wrap(p, "Leé las señales, interpretá qué está pasando y decidí qué necesita la zona: no hay instrucciones, la decisión es tuya.", 48, 390, W - 96, 34, 24, Pal.Text, true);
             UI.T(p, "3 situaciones · distintas en cada partida", 48, H - 42, 19, Pal.Muted);
             var b = Btn("VER SITUACIÓN 1  →", new Vector3(-.4f, .9f, 2.72f), 1.1f, .22f, UI.Style.Primary, () => ShowSituation(0));
-            UI.Appear(p); UI.Appear((RectTransform)b.transform, .25f);
+            UI.Appear(p); UI.Appear(b, .25f);
         }
 
         void ShowSituation(int i)
@@ -383,10 +368,10 @@ namespace Piki
             float x = 44; foreach (var sg in s.signals) x += UI.Chip(p, x, y - 4, sg, tc, 16, 34, 13) + 10;
             var box = UI.Rect(p, 0, 0, W, H, "feedback");
             Action<string> mode = null; var btns = new Dictionary<Treat, PikiButton>();
-            Image barFill = null; Text timeText = null;
+            UIImage barFill = null; UIText timeText = null;
             mode = md =>
             {
-                foreach (Transform ch in box) Destroy(ch.gameObject);
+                foreach (Transform ch in box.transform) Destroy(ch.gameObject);
                 float by = H - 196, bh = 170; Color bc = md == "question" ? Pal.Teal : md == "wrong" ? Pal.Red : md == "correct" ? Pal.Green : Content.TColor(s.correct);
                 UI.Framed(box, 30, by, W - 60, bh, Color.Lerp(UI.PanelA, bc, .14f), Pal.A(bc, .6f), 22, 2.5f);
                 if (md == "question")
@@ -413,7 +398,7 @@ namespace Piki
                     UI.Icon(box, Content.TIcon(s.correct), 80, by + 52, 24, col);
                     UI.T(box, done ? "Zona recuperada" : Content.TVerb(s.correct) + "…", 120, by + 62, 30, done ? Pal.Green : Color.white, true);
                     timeText = UI.T(box, "00:00 / " + Content.TMins(s.correct) + ":00", W - 60, by + 62, 26, Pal.Text, true, UI.Al.R, 400);
-                    Image track; barFill = UI.Bar(box, 60, by + 86, W - 120, 22, done ? 1 : 0, done ? Pal.Green : col, out track);
+                    UIImage track; barFill = UI.Bar(box, 60, by + 86, W - 120, 22, done ? 1 : 0, done ? Pal.Green : col, out track);
                     if (done) timeText.text = Content.TMins(s.correct) + ":00 / " + Content.TMins(s.correct) + ":00";
                     UI.T(box, done ? (s.attempts == 1 ? "Acertaste a la primera · " : "Lo resolviste en " + s.attempts + " intentos · ") + Content.THow(s.correct) : Content.THow(s.correct), 60, by + 142, 19, Pal.Muted, true);
                 }
@@ -460,7 +445,7 @@ namespace Piki
                 UI.Appear(c, .2f + k * .09f);
             }
         }
-        IEnumerator ApplyTreatment(Situation s, int i, Action<string> mode, Func<Image> bar, Func<Text> time, Dictionary<Treat, PikiButton> btns)
+        IEnumerator ApplyTreatment(Situation s, int i, Action<string> mode, Func<UIImage> bar, Func<UIText> time, Dictionary<Treat, PikiButton> btns)
         {
             yield return new WaitForSeconds(2.3f);
             body.FaceZone(s.pos); body.StartFX(s.correct);
@@ -478,7 +463,7 @@ namespace Piki
             foreach (var b in btns.Values) UI.Vanish(b, .35f);
             bool last = i == sits.Count - 1;
             var nb = Btn(last ? "VER RESUMEN  →" : "SIGUIENTE SITUACIÓN  →", new Vector3(-.42f, .84f, 2.7f), 1.15f, .23f, UI.Style.Primary, () => { body.spin = true; if (last) ShowPhysSummary(); else ShowSituation(i + 1); });
-            UI.Appear((RectTransform)nb.transform, .3f);
+            UI.Appear(nb, .3f);
         }
         void ShowPhysSummary()
         {
@@ -500,7 +485,7 @@ namespace Piki
             }
             UI.Wrap(p, "Trabajo invisible: elegir bien entre frío, calor o descarga reduce el riesgo de lesión y acelera la vuelta al entrenamiento.", 48, H - 62, W - 96, 30, 21, Pal.Body, false, true);
             var b = Btn("CONTINUAR · ETAPA 2  →", new Vector3(-.4f, .88f, 2.72f), 1.2f, .22f, UI.Style.Primary, () => StartCoroutine(StartNutrition()));
-            UI.Appear(p); UI.Appear((RectTransform)b.transform, .3f);
+            UI.Appear(p); UI.Appear(b, .3f);
         }
 
         /* ===================================================================
@@ -535,7 +520,7 @@ namespace Piki
             UI.T(p, "ELEGÍ LO QUE TU CUERPO NECESITA PARA RECUPERARSE", 52, 428, 22, Pal.Yellow, true);
             UI.Wrap(p, "Seleccioná los alimentos que pasan a tu alrededor. Mantené las tres barras en la zona verde (60–90%): lo que falta baja el rendimiento y lo que sobra también desequilibra. Algunos alimentos no son prioritarios. Los niveles bajan con el tiempo y todo se acelera.", 52, 464, W - 104, 29, 20, Pal.Text);
             var b = Btn("EMPEZAR MINIJUEGO  →", new Vector3(0, .9f, 2.72f), 1.2f, .23f, UI.Style.Warm, () => StartCoroutine(NutritionGame()));
-            UI.Appear(p); UI.Appear((RectTransform)b.transform, .3f);
+            UI.Appear(p); UI.Appear(b, .3f);
         }
 
         class Item { public Food f; public Transform root, model; public PikiButton btn; public float a, dir, r, h, w, ph; public bool alive = true; public GameObject ring; }
@@ -551,10 +536,10 @@ namespace Piki
             UI.T(hud, "TIEMPO", 44, 62, 17, Pal.Muted, true);
             var tTime = UI.T(hud, "1:00", 44, 142, 76, Color.white, true);
             var tLevel = UI.T(hud, "NIVEL 1 / 3", 44, 190, 20, Pal.Yellow, true);
-            var lvlDots = new Image[3]; for (int i = 0; i < 3; i++) lvlDots[i] = UI.Round(hud, 44 + i * 44, 204, 36, 10, i == 0 ? Pal.Yellow : new Color(1, 1, 1, .15f), 5);
+            var lvlDots = new UIImage[3]; for (int i = 0; i < 3; i++) lvlDots[i] = UI.Round(hud, 44 + i * 44, 204, 36, 10, i == 0 ? Pal.Yellow : new Color(1, 1, 1, .15f), 5);
             var tScore = UI.T(hud, "Elegidos 0 · No prioritarios 0", 44, 256, 20, Pal.Text, true);
             float bx = 330, x0 = bx + 200, bw = HW - bx - 170 - 200;
-            var fills = new Image[3]; var vals = new Text[3]; var sts = new Text[3];
+            var fills = new UIImage[3]; var vals = new UIText[3]; var sts = new UIText[3];
             for (int i = 0; i < 3; i++)
             {
                 float y = 40 + i * 78;
@@ -575,7 +560,7 @@ namespace Piki
                 float[] v = { N.E, N.H, N.R };
                 for (int i = 0; i < 3; i++)
                 {
-                    fills[i].rectTransform.sizeDelta = new Vector2(Mathf.Max(12, bw * v[i] / 100), 32);
+                    fills[i].Size = new Vector2(Mathf.Max(12, bw * v[i] / 100), 32);
                     vals[i].text = Mathf.RoundToInt(v[i]) + "%";
                     sts[i].text = v[i] < ZMIN ? "BAJO" : v[i] > ZMAX ? "EXCESO" : "ÓPTIMO"; sts[i].color = v[i] < ZMIN ? (v[i] < 30 ? Pal.Red : Pal.Orange) : v[i] > ZMAX ? Pal.Yellow : Pal.Green;
                 }
@@ -669,7 +654,7 @@ namespace Piki
             yield return showBanner("¡TIEMPO!");
             ShowNutriResults();
         }
-        IEnumerator BannerCo(RectTransform banner, Text t, string s)
+        IEnumerator BannerCo(UIPanel banner, UIText t, string s)
         {
             if (banner == null) yield break;
             t.text = s; banner.gameObject.SetActive(true);
@@ -723,7 +708,7 @@ namespace Piki
             UI.Wrap(p, "Trabajo invisible: en las 2 horas post-partido combiná carbohidratos + proteínas y tomá líquido de a sorbos hasta reponer lo perdido (≈1,5 L por cada kg de peso perdido).", 52, 540, W - 104, 29, 20, Pal.Body, false, true);
             var b1 = Btn("REINTENTAR", new Vector3(-.62f, .9f, 2.72f), .95f, .22f, UI.Style.Secondary, () => StartCoroutine(NutritionGame()));
             var b2 = Btn("CONTINUAR · ETAPA 3  →", new Vector3(.52f, .9f, 2.72f), 1.2f, .22f, UI.Style.Primary, () => StartCoroutine(StartCalm()));
-            UI.Appear(p); UI.Appear((RectTransform)b1.transform, .25f); UI.Appear((RectTransform)b2.transform, .32f);
+            UI.Appear(p); UI.Appear(b1, .25f); UI.Appear(b2, .32f);
         }
 
         /* ===================================================================
@@ -748,7 +733,7 @@ namespace Piki
             UI.Wrap(p, "PC: mantené presionado clic o ESPACIO mientras inhalás y soltá al exhalar. Celular: mantené el dedo apoyado. VR: mantené el gatillo. Solo con la mirada: respirá con la esfera.", 52, 448, W - 104, 28, 19, Pal.Muted);
             UI.T(p, "6 ciclos · 1 minuto", 52, H - 34, 19, Pal.Purple, true);
             var b = Btn("COMENZAR RESPIRACIÓN", new Vector3(0, .92f, 2.72f), 1.2f, .22f, UI.Style.Primary, () => StartCoroutine(Breathing()));
-            UI.Appear(p); UI.Appear((RectTransform)b.transform, .3f);
+            UI.Appear(p); UI.Appear(b, .3f);
         }
         IEnumerator Breathing()
         {
@@ -773,7 +758,7 @@ namespace Piki
             var tSec = UI.T(lab, "", UI.Wd(lab) / 2, 158, 26, Pal.Muted, true, UI.Al.C, UI.Wd(lab));
             var info = UI.Canvas(scr, new Vector3(0, .72f, 2.8f), 2.4f, .34f, new Vector3(12, 0, 0), "Info"); float IW = UI.Wd(info), IH = UI.Ht(info);
             UI.Framed(info, 6, 6, IW - 12, IH - 12, new Color(.02f, .04f, .09f, .75f), Pal.A(Pal.Purple, .5f), (IH - 12) / 2, 2);
-            var cdots = new Image[CYCLES]; for (int i = 0; i < CYCLES; i++) cdots[i] = UI.Icon(info, Spr.Circle, 70 + i * 34, IH / 2, 10, new Color(1, 1, 1, .15f));
+            var cdots = new UIImage[CYCLES]; for (int i = 0; i < CYCLES; i++) cdots[i] = UI.Icon(info, Spr.Circle, 70 + i * 34, IH / 2, 10, new Color(1, 1, 1, .15f));
             var tCycle = UI.T(info, "Ciclo 1 de 6", 70 + CYCLES * 34 + 10, IH / 2 + 9, 25, Color.white, true);
             var tSync = UI.T(info, "Modo guiado", IW * .6f, IH / 2 + 9, 25, Pal.Teal, true, UI.Al.C, 360);
             UI.Icon(info, Spr.Heart, IW - 190, IH / 2, 16, Pal.Red); var tHr = UI.T(info, "104 lpm", IW - 162, IH / 2 + 9, 25, Color.white, true);
@@ -857,13 +842,13 @@ namespace Piki
                 UI.Framed(p, 56, y, W - 112, 86, new Color(.08f, .14f, .22f, 1), Pal.A(r.c, .4f), 18, 2);
                 UI.Icon(p, Spr.Glow, 100, y + 43, 30, Pal.A(Pal.Ok, .7f)); UI.Icon(p, Spr.Circle, 100, y + 43, 17, Pal.Ok);
                 UI.T(p, r.n, 136, y + 38, 28, Color.white, true);
-                var dt = UI.T(p, r.d, 136, y + 68, 18, Pal.Muted, true, UI.Al.L, W - 460); dt.horizontalOverflow = HorizontalWrapMode.Wrap; dt.resizeTextForBestFit = true; dt.resizeTextMinSize = 12; dt.resizeTextMaxSize = 18;
+                var dt = UI.T(p, r.d, 136, y + 68, 18, Pal.Muted, true, UI.Al.L, W - 460); dt.FitWidth(W - 460);
                 UI.T(p, "Completada", W - 84, y + 52, 26, Pal.Ok, true, UI.Al.R, 300);
             }
             UI.T(p, "“Nadie lo ve. Pero también es entrenamiento.”", W / 2, H - 42, 27, Pal.Orange, false, UI.Al.C, W, true);
             var b1 = Btn("JUGAR DE NUEVO", new Vector3(-.6f, .88f, 2.8f), 1.05f, .22f, UI.Style.Primary, () => StartCoroutine(StartMatch()));
             var b2 = Btn("VOLVER AL INICIO", new Vector3(.6f, .88f, 2.8f), 1.05f, .22f, UI.Style.Secondary, () => StartCoroutine(GoHome()));
-            UI.Appear(p, 0, .9f); UI.Appear((RectTransform)b1.transform, .5f); UI.Appear((RectTransform)b2.transform, .6f);
+            UI.Appear(p, 0, .9f); UI.Appear(b1, .5f); UI.Appear(b2, .6f);
             // Partículas doradas suaves
             var ps = Build.Particles(scr, new Vector3(0, 0, 0), new Color(1, .89f, .64f, .8f), .06f, 300);
             var main = ps.main; main.startLifetime = 14; main.startSpeed = new ParticleSystem.MinMaxCurve(.05f, .2f); main.startSize = new ParticleSystem.MinMaxCurve(.03f, .08f);

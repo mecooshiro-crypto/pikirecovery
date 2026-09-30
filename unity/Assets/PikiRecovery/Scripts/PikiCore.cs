@@ -206,6 +206,7 @@ namespace Piki
         }
 
         // 9-slice: esquinas de 48 px de radio (borde 52)
+        public static Sprite White { get { return Make("white", 8, (u, v) => Color.white, 1); } }
         public static Sprite Rounded { get { return Make("rounded", 128, (u, v) => W(RR(u, v, 0, 0, 1, 1, .75f)), 3, 52); } }
         public static Sprite Circle { get { return Make("circle", 128, (u, v) => W(u * u + v * v <= .94f)); } }
         public static Sprite Ring { get { return Make("ring", 256, (u, v) => { float r = Mathf.Sqrt(u * u + v * v); return W(r > .86f && r < .97f); }); } }
@@ -401,10 +402,17 @@ namespace Piki
         public float phase;
         void Update() { transform.localEulerAngles = new Vector3(0, Mathf.Sin(Time.time * 2.2f + phase) * 28 + 30, 0); }
     }
+    // Cartel LED: el texto corre letra por letra
     public class LedScroll : MonoBehaviour
     {
-        public float period = 1000, speed = 180;
-        void Update() { var rt = (RectTransform)transform; var p = rt.anchoredPosition; p.x = -((Time.time * speed) % period); rt.anchoredPosition = p; }
+        public string content = ""; public int visible = 40; public float step = .12f; int offset; float t;
+        void Update() { t += Time.deltaTime; if (t < step) return; t = 0; offset = (offset + 1) % Mathf.Max(1, content.Length); Apply(); }
+        public void Apply()
+        {
+            var ui = GetComponent<UIText>(); if (ui == null || content.Length == 0) return;
+            var sb = new System.Text.StringBuilder(); int i = offset; while (sb.Length < visible) { sb.Append(content[i % content.Length]); i++; }
+            ui.text = sb.ToString();
+        }
     }
 
     /* ------------------------------ Tweens / corrutinas ------------------------------ */

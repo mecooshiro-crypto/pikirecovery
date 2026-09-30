@@ -79,13 +79,12 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 
 ## Si algo se ve raro
 
-* **Errores `'Text'` o `'Image'` could not be found:** falta el paquete *Unity UI*. `Setup/PikiSetup.cs` lo instala
-  solo al abrir el proyecto. Si no puede, instalalo desde *Window ▸ Package Manager ▸ Unity Registry ▸ Unity UI*.
 
 * **Todo rosa o magenta:** el proyecto no es URP ni Built-in estándar. Los scripts usan
   `Universal Render Pipeline/Lit` (o `Standard`) y `Sprites/Default`.
 * **En un build faltan partes, pero en el editor se ven bien:** agregá `Sprites/Default` y
   `Universal Render Pipeline/Lit` en *Project Settings → Graphics → Always Included Shaders*.
+* **No hace falta instalar ningún paquete:** la interfaz usa solo componentes que vienen con Unity.
 * **Aparece un error del Input System:** en *Project Settings → Player → Active Input Handling* elegí
   *Input System Package (New)* o *Both*. El código funciona con cualquiera de los dos sistemas.
 * **Aparece "Scene couldn't be loaded" al pasar de etapa:** las escenas tienen que estar en *File ▸ Build Profiles ▸
@@ -96,13 +95,12 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 | Archivo | Qué hace |
 |---|---|
 | `PikiGame.cs` | Flujo completo, todas las pantallas y el paso entre escenas |
-| `Setup/PikiSetup.cs` | Instala solo el paquete Unity UI si falta |
 | `Editor/PikiSceneBuilder.cs` | Menú *Piki Recovery*: construye y guarda las 4 escenas |
 | `PikiRig.cs` | Cámara 360°, giroscopio, VR (cabeza y controles), puntero, mirada y "mantener presionado" |
 | `PikiEnv.cs` | Cielo, luces, hub de inicio, estadio (tribunas, LED, arcos, torres, marcador, jugadores) y vestuario |
 | `PikiModels.cs` | Holograma corporal, efectos de frío, calor y masaje, y los 22 alimentos 3D |
 | `PikiContent.cs` | Zonas, situaciones al azar, tratamientos, pistas y alimentos con sus valores |
-| `PikiUI.cs` | Paneles, textos, botones e íconos en 3D |
+| `PikiUI.cs` | Paneles, textos, botones e íconos en 3D (sin paquetes extra: SpriteRenderer + TextMesh) |
 | `PikiAudio.cs` | Sonido sintetizado: público, silbato, música por nivel, ambiente de calma y respiración |
 | `PikiCore.cs` | Materiales, texturas, íconos y mallas procedurales, más las animaciones |
 

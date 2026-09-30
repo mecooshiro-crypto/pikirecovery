@@ -71,7 +71,7 @@ namespace Piki
         float yaw, pitch, gyroYawRef; bool gyro, gyroRefSet;
         bool pressing; float dragDist;
         PikiButton hovered; float fuse;
-        [SerializeField] Transform reticle, reticleFill; [SerializeField] LineRenderer laser;
+        [SerializeField] Transform reticle, reticleFill; [SerializeField] Vector3 fillBase = Vector3.one; [SerializeField] LineRenderer laser;
         readonly List<UXR.InputDevice> devs = new List<UXR.InputDevice>();
         bool trigPrev;
 
@@ -93,11 +93,10 @@ namespace Piki
 
         void BuildReticle()
         {
-            var c = UI.Canvas(Cam.transform, new Vector3(0, 0, 1.2f), .06f, .06f, default(Vector3), "Reticle");
+            var c = UI.Canvas(Cam.transform, new Vector3(0, 0, 1.2f), .06f, .06f, default(Vector3), "Reticle", UI.S, 3, 4002, 32000);
             UI.Icon(c, Spr.Ring, 12, 12, 10, Pal.A(Pal.Teal, .9f));
             var fill = UI.Icon(c, Spr.Circle, 12, 12, 6, Pal.Teal);
-            reticleFill = fill.transform; reticle = c;
-            c.GetComponent<Canvas>().sortingOrder = 100;
+            reticleFill = fill.transform; fillBase = reticleFill.localScale; reticle = c.transform;
             var lg = new GameObject("Laser"); lg.transform.SetParent(transform, false);
             laser = lg.AddComponent<LineRenderer>(); laser.sharedMaterial = Mat.Unlit(Pal.A(Pal.Teal, .7f)); laser.widthMultiplier = .006f; laser.positionCount = 2; laser.enabled = false; laser.useWorldSpace = true;
         }
@@ -194,7 +193,7 @@ namespace Piki
 
             reticle.gameObject.SetActive(XR || gyro);
             float fk = gazeMode && hovered != null ? Mathf.Clamp01(fuse / FuseTime) : 0;
-            reticleFill.localScale = Vector3.one * Mathf.Lerp(.35f, 1.6f, fk);
+            reticleFill.localScale = fillBase * Mathf.Lerp(.35f, 1.6f, fk);
             laser.enabled = XR && !gazeMode;
             if (laser.enabled) { laser.SetPosition(0, ray.origin); laser.SetPosition(1, ray.origin + ray.direction * hitDist); }
         }
