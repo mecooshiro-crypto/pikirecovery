@@ -369,58 +369,8 @@ namespace Piki
         }
     }
 
-    public class Billboard : MonoBehaviour
-    {
-        public bool yOnly;
-        void LateUpdate()
-        {
-            var cam = PikiRig.CamT; if (cam == null) return;
-            Vector3 d = transform.position - cam.position; if (yOnly) d.y = 0;
-            if (d.sqrMagnitude > 1e-6f) transform.rotation = Quaternion.LookRotation(d, Vector3.up);
-        }
-    }
 
-    /* ------------------------------ Componentes de animación del entorno ------------------------------ */
-    public class EmitOnStart : MonoBehaviour
-    {
-        public int count = 100;
-        void Start() { var ps = GetComponent<ParticleSystem>(); if (ps == null) return; ps.Play(); ps.Emit(count); }
-    }
-    public class Spin : MonoBehaviour
-    {
-        public Vector3 degreesPerSecond = new Vector3(0, 10, 0);
-        void Update() { transform.Rotate(degreesPerSecond * Time.deltaTime, Space.Self); }
-    }
-    public class Pulse : MonoBehaviour
-    {
-        public float amount = .02f, speed = .8f, phase; Vector3 baseScale;
-        void Start() { baseScale = transform.localScale; }
-        void Update() { transform.localScale = baseScale * (1 + Mathf.Sin(Time.time * speed + phase) * amount); }
-    }
-    public class FlagWave : MonoBehaviour
-    {
-        public float phase;
-        void Update() { transform.localEulerAngles = new Vector3(0, Mathf.Sin(Time.time * 2.2f + phase) * 28 + 30, 0); }
-    }
-    // Cartel LED: el texto corre letra por letra
-    public class LedScroll : MonoBehaviour
-    {
-        public string content = ""; public int visible = 40; public float step = .12f; int offset; float t;
-        void Update() { t += Time.deltaTime; if (t < step) return; t = 0; offset = (offset + 1) % Mathf.Max(1, content.Length); Apply(); }
-        public void Apply()
-        {
-            var ui = GetComponent<UIText>(); if (ui == null || content.Length == 0) return;
-            var sb = new System.Text.StringBuilder(); int i = offset; while (sb.Length < visible) { sb.Append(content[i % content.Length]); i++; }
-            ui.text = sb.ToString();
-        }
-    }
 
-    /* ------------------------------ Tweens / corrutinas ------------------------------ */
-    public class Runner : MonoBehaviour
-    {
-        static Runner inst;
-        public static Runner I { get { if (inst == null) inst = new GameObject("PikiRunner").AddComponent<Runner>(); return inst; } }
-    }
     public static class Tw
     {
         public static IEnumerator Co(float dur, Action<float> f, Func<float, float> ease = null)
