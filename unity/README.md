@@ -1,24 +1,38 @@
 # Piki Recovery · Fútbol — versión Unity (360° / VR)
 
-Es la misma experiencia que la versión web (`index.html`), rehecha en C# para **Unity 6** (probada contra
-la API de Unity 6.x; tu versión es 6000.4). Todo se genera por código al apretar **Play**: el estadio, el
-vestuario, el holograma del cuerpo, los alimentos 3D, la interfaz y el sonido. No hace falta importar
-modelos, imágenes ni audios.
+Es la misma experiencia que la versión web (`index.html`), rehecha en C# para **Unity 6** (compilada contra la
+API de Unity; tu versión es 6000.4). El proyecto trae **4 escenas ya armadas** (estadio, vestuario, etc.) que
+podés ver y editar en el editor. No hace falta importar modelos, imágenes ni audios: un constructor genera las
+escenas y guarda todo como assets.
 
-## Instalación (2 minutos)
+## Instalación y escenas
 
-1. Descargá esta carpeta del repositorio (rama `claude/piki-recovery-vr-html-1flqhv`) o el `.zip` que te pasé.
-2. Copiá la carpeta **`Assets/PikiRecovery`** dentro de la carpeta **`Assets`** de tu proyecto
-   (`pikirecovery-unity 2/Assets/`). Podés arrastrarla desde el Finder a la ventana *Project* de Unity.
-3. Esperá a que Unity compile (abajo a la derecha deja de girar el ícono).
-4. Abrí cualquier escena (por ejemplo `SampleScene`) y apretá **▶ Play**.
+1. Copiá la carpeta **`Assets/PikiRecovery`** dentro de la carpeta **`Assets`** de tu proyecto.
+   Si ya tenías una versión anterior, borrala antes.
+2. Cuando Unity termine de compilar aparece la ventana **"¿Construir ahora las 4 escenas?"**: tocá
+   **Construir**. También podés hacerlo desde el menú **Piki Recovery ▸ Construir escenas**.
+3. Se crean 4 escenas en `Assets/PikiRecovery/Scenes`, con todo ya armado y visible en el editor:
 
-Listo: la experiencia arranca sola. El script usa la cámara de la escena, apaga la luz que venga por defecto
-y construye todo lo demás.
+| Escena | Qué tiene |
+|---|---|
+| `00_Inicio` | Hub de inicio (grilla, pelota, partículas), panel de bienvenida y elección de deporte |
+| `01_Cancha` | Estadio completo: césped con líneas, tribunas con público, techo, torres de luz, carteles LED, arcos con red, banderines, marcador, bancos, túnel, jugadores, pelota y botellas. Etapa 1 (física) |
+| `02_Vestuario` | Vestuario: piso y paredes de azulejos, 23 taquillas con camisetas numeradas, bancos, escudo, pizarra táctica, puerta y mesa de hidratación. Etapa 2 (nutrición) |
+| `03_Calma` | El mismo estadio, vacío y de noche, con estrellas. Etapa 3 (respiración) y pantalla final |
 
-> Si querés arrancar directo en una etapa para probar: creá un GameObject vacío, agregale el componente
-> **Piki Game** y elegí la etapa en **Start At** (Inicio, Deporte, Cancha, Física, Situación, Nutrición,
-> Minijuego, Calma, Respiración, Final).
+4. Abrí **`00_Inicio`** y apretá **▶ Play**. El juego pasa solo de una escena a la otra.
+   También podés abrir cualquier escena y darle Play para probar solo esa etapa.
+
+En cada escena, en la ventana *Hierarchy*, vas a encontrar:
+* **Entornos**: todo el escenario (piso, tribunas, luces, cielo…). Se puede mover, cambiar de color o borrar,
+  y los cambios se mantienen.
+* **PikiRig**: la cámara y el cursor para VR.
+* **Piki Recovery (juego)**: la lógica. En el Inspector podés elegir con qué etapa arranca (**Start At**).
+* **UI (vista previa…)**: te muestra dónde aparecen los paneles. Al dar Play se regenera, porque los textos
+  cambian en cada partida (situaciones al azar, resultados, etc.).
+
+Las texturas, materiales y mallas quedan guardados en `Assets/PikiRecovery/Generated`. Si reconstruís las escenas
+desde el menú, se reemplazan y se pierden los cambios que hayas hecho a mano.
 
 ## Cómo se juega
 
@@ -71,14 +85,15 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
   `Universal Render Pipeline/Lit` en *Project Settings → Graphics → Always Included Shaders*.
 * **Aparece un error del Input System:** en *Project Settings → Player → Active Input Handling* elegí
   *Input System Package (New)* o *Both*. El código funciona con cualquiera de los dos sistemas.
-* **La experiencia arranca sola en otras escenas del proyecto:** es a propósito (`PikiBoot`). Para
-  desactivarlo, borrá el método `Boot` en `PikiGame.cs` y agregá el componente a mano.
+* **Aparece "Scene couldn't be loaded" al pasar de etapa:** las escenas tienen que estar en *File ▸ Build Profiles ▸
+  Scene List*. El constructor las agrega solo; si las sacaste, volvé a construir.
 
 ## Archivos
 
 | Archivo | Qué hace |
 |---|---|
-| `PikiGame.cs` | Flujo completo y todas las pantallas (arranque automático incluido) |
+| `PikiGame.cs` | Flujo completo, todas las pantallas y el paso entre escenas |
+| `Editor/PikiSceneBuilder.cs` | Menú *Piki Recovery*: construye y guarda las 4 escenas |
 | `PikiRig.cs` | Cámara 360°, giroscopio, VR (cabeza y controles), puntero, mirada y "mantener presionado" |
 | `PikiEnv.cs` | Cielo, luces, hub de inicio, estadio (tribunas, LED, arcos, torres, marcador, jugadores) y vestuario |
 | `PikiModels.cs` | Holograma corporal, efectos de frío, calor y masaje, y los 22 alimentos 3D |

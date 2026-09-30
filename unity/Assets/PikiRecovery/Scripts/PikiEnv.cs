@@ -44,44 +44,57 @@ namespace Piki
         public EnvName Current { get; private set; }
         public SkyP SkyNow { get; private set; }
         public LightP LightNow { get; private set; }
+
+        // Referencias guardadas en la escena (se completan al construirla)
         public Transform Hub, Stadium, Locker;
-        Light dirLight; MeshRenderer skyR; Texture2D skyTex; ParticleSystem stars; Renderer starsR; GameObject sun;
-        readonly List<Renderer> floodGlows = new List<Renderer>(); readonly List<Material> floodPanels = new List<Material>(); Material roofLightMat;
-        float giTimer;
+        [HideInInspector] public PikiRig rig;
+        [HideInInspector] public Light dirLight; [HideInInspector] public MeshRenderer skyR; [HideInInspector] public Renderer starsR; [HideInInspector] public GameObject sun;
+        [HideInInspector] public List<Renderer> floodGlows = new List<Renderer>(), floodPanels = new List<Renderer>();
+        [HideInInspector] public Renderer roofLight, standR; [HideInInspector] public Texture2D crowdFull, crowdEmpty; [HideInInspector] public Transform players;
+        [HideInInspector] public Text sbTitle, sbHome, sbAway, sbScore, sbFoot, sbBig1, sbBig2;
+        Texture2D skyTex; float giTimer;
 
-        // Estadio
-        Material standMat; Texture2D crowdFull, crowdEmpty; Transform players; readonly List<Player> team = new List<Player>();
-        Text sbTitle, sbHome, sbAway, sbScore, sbFoot, sbBig1, sbBig2;
-        readonly List<RectTransform> ledTexts = new List<RectTransform>(); float ledPeriod = 1; readonly List<Transform> flags = new List<Transform>();
-        Transform hubBall; ParticleSystem hubDust; readonly List<Transform> hubRings = new List<Transform>();
-
-        public void Create()
+        public void Create(bool hub = true, bool stadium = true, bool locker = true)
         {
             var lgo = new GameObject("Sol / Focos"); lgo.transform.SetParent(transform, false);
             dirLight = lgo.AddComponent<Light>(); dirLight.type = LightType.Directional; dirLight.shadows = LightShadows.None;
             lgo.transform.rotation = Quaternion.Euler(55, -30, 0);
             RenderSettings.skybox = null; RenderSettings.ambientMode = AmbientMode.Trilight; RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Exponential;
-            BuildSky(); BuildHub(); BuildStadium(); BuildLocker();
+            BuildSky();
+            if (hub) BuildHub();
+            if (stadium) BuildStadium();
+            if (locker) BuildLocker();
+        }
+
+        // En juego se usan copias de los materiales para no modificar los assets de la escena
+        void Awake()
+        {
+            if (!Application.isPlaying || skyR == null) return;
+            skyTex = new Texture2D(2, 256, TextureFormat.RGBA32, false); skyTex.wrapMode = TextureWrapMode.Clamp;
+            var sm = new Material(skyR.sharedMaterial); sm.mainTexture = skyTex; skyR.sharedMaterial = sm;
+            var list = new List<Renderer>(floodGlows); list.AddRange(floodPanels); list.Add(roofLight); list.Add(standR); list.Add(starsR);
+            if (sun != null) list.Add(sun.GetComponent<Renderer>());
+            foreach (var r in list) if (r != null) r.sharedMaterial = new Material(r.sharedMaterial);
         }
 
         /* ------------------------------ Cielo y luces ------------------------------ */
         void BuildSky()
         {
-            skyTex = new Texture2D(2, 256, TextureFormat.RGBA32, false); skyTex.wrapMode = TextureWrapMode.Clamp;
+            skyTex = new Texture2D(2, 256, TextureFormat.RGBA32, false); skyTex.wrapMode = TextureWrapMode.Clamp; Persist.Keep(skyTex, "Cielo");
             var sky = Build.MeshObj("Cielo", transform, Build.InvertedSphere(800), Mat.Unlit(Color.white, skyTex, 1000));
             skyR = sky.GetComponent<MeshRenderer>();
             sky.AddComponent<FollowCam>();
-            stars = Build.Particles(sky.transform, Vector3.zero, Color.white, 2.4f, 1600);
+            var stars = Build.Particles(sky.transform, Vector3.zero, Color.white, 2.4f, 1600);
             var sh = stars.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Hemisphere; sh.radius = 700; sh.radiusThickness = 0; sh.rotation = new Vector3(-90, 0, 0);
             var main = stars.main; main.startLifetime = 100000f; main.startSize = new ParticleSystem.MinMaxCurve(1.2f, 3f);
             starsR = stars.GetComponent<Renderer>(); starsR.sharedMaterial.renderQueue = 1001;
-            stars.Play(); stars.Emit(1400);
+            Build.EmitStatic(stars, 1400);
             sun = Build.Glow(sky.transform, Quaternion.Euler(-4, -40, 0) * Vector3.forward * 700, 420, new Color(1, .85f, .6f, .8f));
             sun.GetComponent<Renderer>().sharedMaterial.renderQueue = 1002;
         }
         public void DrawSky(SkyP p)
         {
-            SkyNow = p; var px = new Color[512];
+            SkyNow = p; if (skyTex == null) skyTex = skyR.sharedMaterial.mainTexture as Texture2D; if (skyTex == null) return; var px = new Color[512];
             for (int y = 0; y < 256; y++)
             {
                 float v = y / 255f; Color c;
@@ -106,17 +119,21 @@ namespace Piki
             RenderSettings.fog = p.fogD > 0; RenderSettings.fogColor = p.fog; RenderSettings.fogDensity = p.fogD;
             starsR.sharedMaterial.color = new Color(1, 1, 1, p.stars);
             foreach (var g in floodGlows) g.sharedMaterial.color = new Color(1, .95f, .84f, .85f * p.flood);
-            foreach (var m in floodPanels) m.SetColor("_EmissionColor", Color.white * (.25f + 2.2f * p.flood));
-            if (roofLightMat != null) roofLightMat.color = Color.Lerp(new Color(.2f, .2f, .2f), new Color(1, .97f, .88f), Mathf.Clamp01(p.flood));
+            foreach (var r in floodPanels) r.sharedMaterial.SetColor("_EmissionColor", Color.white * (.25f + 2.2f * p.flood));
+            if (roofLight != null) roofLight.sharedMaterial.color = Color.Lerp(new Color(.2f, .2f, .2f), new Color(1, .97f, .88f), Mathf.Clamp01(p.flood));
             giTimer -= Time.deltaTime; if (forceGI || giTimer <= 0) { DynamicGI.UpdateEnvironment(); giTimer = .25f; }
         }
 
         public void Set(EnvName env, StadiumMode mode = StadiumMode.Match)
         {
             Current = env;
-            Hub.gameObject.SetActive(env == EnvName.Hub); Stadium.gameObject.SetActive(env == EnvName.Stadium); Locker.gameObject.SetActive(env == EnvName.Locker);
+            Transform want = env == EnvName.Hub ? Hub : env == EnvName.Stadium ? Stadium : Locker;
+            if (want == null) { Debug.LogWarning("Piki Recovery: esta escena no tiene el entorno " + env + "."); return; }
+            if (Hub != null) Hub.gameObject.SetActive(env == EnvName.Hub);
+            if (Stadium != null) Stadium.gameObject.SetActive(env == EnvName.Stadium);
+            if (Locker != null) Locker.gameObject.SetActive(env == EnvName.Locker);
             skyR.gameObject.SetActive(env != EnvName.Locker);
-            var rig = PikiRig.I;
+            var rig = this.rig != null ? this.rig : PikiRig.I;
             if (env == EnvName.Hub) { DrawSky(SkyHub); ApplyLight(LHub); rig.PlaceAt(Vector3.zero); }
             if (env == EnvName.Locker) { ApplyLight(LLocker); rig.PlaceAt(new Vector3(0, 0, -.6f)); }
             if (env == EnvName.Stadium)
@@ -125,18 +142,6 @@ namespace Piki
                 DrawSky(mode == StadiumMode.Match ? SkyDusk : mode == StadiumMode.Calm ? SkyNight : SkyDawn);
                 ApplyLight(mode == StadiumMode.Match ? LMatch : mode == StadiumMode.Calm ? LCalm : LDawn);
                 rig.PlaceAt(new Vector3(0, 0, -6));
-            }
-        }
-
-        void Update()
-        {
-            float dt = Time.deltaTime, t = Time.time;
-            if (Hub.gameObject.activeSelf) { hubBall.Rotate(3 * dt, 5 * dt, 0); for (int i = 0; i < hubRings.Count; i++) hubRings[i].localScale = Vector3.one * (4.4f + i * 2.4f) * (1 + Mathf.Sin(t * .8f + i) * .02f); hubDust.transform.Rotate(0, .4f * dt, 0); }
-            if (Stadium.gameObject.activeSelf)
-            {
-                foreach (var r in ledTexts) { var p = r.anchoredPosition; p.x = -((t * 180) % ledPeriod); r.anchoredPosition = p; }
-                for (int i = 0; i < flags.Count; i++) flags[i].localEulerAngles = new Vector3(0, Mathf.Sin(t * 2.2f + i) * 28 + 30, 0);
-                if (players.gameObject.activeSelf) foreach (var p in team) p.Tick(dt);
             }
         }
 
@@ -151,17 +156,17 @@ namespace Piki
             for (int i = 0; i < 3; i++)
             {
                 var r = Build.MeshObj("Anillo", Hub, Build.Floor(1, 1), Mat.Unlit(Pal.A(Pal.Teal, .55f), Spr.Ring.texture, 2902));
-                r.transform.localPosition = new Vector3(0, .02f, 0); r.transform.localScale = Vector3.one * (4.4f + i * 2.4f); hubRings.Add(r.transform);
+                r.transform.localPosition = new Vector3(0, .02f, 0); r.transform.localScale = Vector3.one * (4.4f + i * 2.4f); var pu = r.AddComponent<Pulse>(); pu.phase = i;
             }
             var ballTex = new Px(256, 128, new Color32(0, 0, 0, 0));
             for (int i = 0; i < 256; i += 16) ballTex.Rect(i, 0, 2, 128, Pal.A(Pal.Teal, .8f)); for (int j = 0; j < 128; j += 16) ballTex.Rect(0, j, 256, 2, Pal.A(Pal.Teal, .8f));
             var ball = Build.Prim(PrimitiveType.Sphere, Hub, new Vector3(0, 12, 55), Vector3.one * 20, Mat.Unlit(new Color(1, 1, 1, .35f), ballTex.ToTex(true, TextureWrapMode.Repeat), 2903));
-            hubBall = ball.transform;
+            ball.AddComponent<Spin>().degreesPerSecond = new Vector3(3, 5, 0);
             Build.Glow(Hub, new Vector3(0, 12, 56), 70, Pal.A(Pal.Teal, .22f));
-            hubDust = Build.Particles(Hub, new Vector3(0, 15, 0), new Color(.56f, .96f, .86f, .8f), .15f, 1200);
+            var hubDust = Build.Particles(Hub, new Vector3(0, 15, 0), new Color(.56f, .96f, .86f, .8f), .15f, 1200);
             var sh = hubDust.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(140, 30, 140);
             var main = hubDust.main; main.startLifetime = 100000f; main.startSize = new ParticleSystem.MinMaxCurve(.08f, .22f);
-            hubDust.Play(); hubDust.Emit(1100);
+            Build.EmitStatic(hubDust, 1100); hubDust.gameObject.AddComponent<Spin>().degreesPerSecond = new Vector3(0, .4f, 0);
         }
 
         /* ------------------------------ ESTADIO ------------------------------ */
@@ -247,13 +252,11 @@ namespace Piki
             // Tribunas: anillo continuo
             var path = Superellipse(41, 59, 10, 240);
             crowdFull = CrowdTexture(true, 11); crowdEmpty = CrowdTexture(false, 11);
-            standMat = Mat.Lit(Color.white, .05f, 0, crowdFull);
-            Build.MeshObj("Tribunas", S, RingStrip(path, new[] { new Prof(0, 1.4f, 0), new Prof(26, 22, 1) }, 12), standMat);
+            standR = Build.MeshObj("Tribunas", S, RingStrip(path, new[] { new Prof(0, 1.4f, 0), new Prof(26, 22, 1) }, 12), Mat.Lit(Color.white, .05f, 0, crowdFull)).GetComponent<Renderer>();
             Build.MeshObj("Muro", S, RingStrip(path, new[] { new Prof(0, 0, 0), new Prof(0, 1.4f, 1) }, 12), Mat.Lit(Pal.Hex("#0f1822"), .2f));
             Build.MeshObj("Fachada", S, RingStrip(path, new[] { new Prof(26, 21.5f, 0), new Prof(27, 22.5f, .3f), new Prof(27.5f, 28, .6f), new Prof(27.5f, 0, 1) }, 12), Mat.Lit(Pal.Hex("#1a222d"), .4f, .3f));
             Build.MeshObj("Techo", S, RingStrip(path, new[] { new Prof(27.5f, 28, 0), new Prof(9, 30.5f, 1) }, 12), Mat.Lit(Pal.Hex("#2a323c"), .5f, .4f));
-            roofLightMat = Mat.Unlit(Color.white, null, 2000);
-            Build.MeshObj("Luces del techo", S, RingStrip(path, new[] { new Prof(11, 30.05f, 0), new Prof(12.2f, 29.95f, 1) }, 12), roofLightMat);
+            roofLight = Build.MeshObj("Luces del techo", S, RingStrip(path, new[] { new Prof(11, 30.05f, 0), new Prof(12.2f, 29.95f, 1) }, 12), Mat.Unlit(Color.white, null, 2000)).GetComponent<Renderer>();
             var vom = Mat.Lit(Pal.Hex("#0a0f14"));
             for (int i = 0; i < 16; i++)
             {
@@ -273,13 +276,13 @@ namespace Piki
             foreach (int dir in new[] { -1, 1 }) BuildGoal(S, 52.5f * dir, dir, postM, netMat);
 
             // Banderines
-            var flagM = Mat.Lit(Pal.Yellow, .3f); var poleM = Mat.Lit(Color.white, .5f);
+            var flagM = Mat.Lit(Pal.Yellow, .3f); int flagIndex = 0; var poleM = Mat.Lit(Color.white, .5f);
             foreach (var c in new[] { new Vector2(-34, -52.5f), new Vector2(34, -52.5f), new Vector2(34, 52.5f), new Vector2(-34, 52.5f) })
             {
                 Build.Prim(PrimitiveType.Cylinder, S, new Vector3(c.x, .75f, c.y), new Vector3(.04f, .75f, .04f), poleM);
                 var piv = Build.Group("Banderín", S, new Vector3(c.x, 1.35f, c.y));
                 var f = Build.MeshObj("tela", piv, Build.Wall(.42f, .28f, 1, 1, true), flagM); f.transform.localPosition = new Vector3(.21f, 0, 0);
-                flags.Add(piv);
+                piv.gameObject.AddComponent<FlagWave>().phase = flagIndex++;
             }
 
             // Torres de iluminación
@@ -289,8 +292,8 @@ namespace Piki
             foreach (var c in new[] { new Vector2(-64, -82), new Vector2(64, -82), new Vector2(64, 82), new Vector2(-64, 82) })
             {
                 Build.Prim(PrimitiveType.Cylinder, S, new Vector3(c.x, 25, c.y), new Vector3(1.2f, 25, 1.2f), Mat.Lit(Pal.Hex("#39424e"), .5f, .5f));
-                var pm = Mat.Emissive(Color.white, Color.white * 2, lampTex); floodPanels.Add(pm);
-                var panel = Build.Prim(PrimitiveType.Cube, S, new Vector3(c.x * .97f, 52, c.y * .97f), new Vector3(12, 6, .5f), pm);
+                var pm = Mat.Emissive(Color.white, Color.white * 2, lampTex);
+                var panel = Build.Prim(PrimitiveType.Cube, S, new Vector3(c.x * .97f, 52, c.y * .97f), new Vector3(12, 6, .5f), pm); floodPanels.Add(panel.GetComponent<Renderer>());
                 panel.transform.rotation = Quaternion.LookRotation(new Vector3(-c.x, -52, -c.y).normalized);
                 var glow = Build.Glow(S, new Vector3(c.x * .95f, 51.5f, c.y * .95f), 46, new Color(1, .95f, .84f, .85f));
                 floodGlows.Add(glow.GetComponent<Renderer>());
@@ -327,9 +330,9 @@ namespace Piki
 
             // Jugadores que se retiran al túnel
             players = Build.Group("Jugadores", S);
-            for (int i = 0; i < 6; i++) team.Add(new Player(players, Pal.Teal, Color.white, Pal.Teal));
-            for (int i = 0; i < 5; i++) team.Add(new Player(players, Pal.Hex("#d63447"), Pal.Hex("#1a1a1a"), Pal.Hex("#d63447")));
-            team.Add(new Player(players, Pal.Hex("#111111"), Pal.Hex("#111111"), Pal.Hex("#111111")));
+            for (int i = 0; i < 6; i++) PlayerWalker.Make(players, Pal.Teal, Color.white, Pal.Teal, i);
+            for (int i = 0; i < 5; i++) PlayerWalker.Make(players, Pal.Hex("#d63447"), Pal.Hex("#1a1a1a"), Pal.Hex("#d63447"), 6 + i);
+            PlayerWalker.Make(players, Pal.Hex("#111111"), Pal.Hex("#111111"), Pal.Hex("#111111"), 11);
         }
 
         void BuildLED(Transform S, float len, Vector3 pos, float ry)
@@ -341,10 +344,10 @@ namespace Piki
             UI.Img(c, 0, 0, UI.Wd(c), UI.Ht(c), null, Pal.Hex("#04080e"));
             string seg = "<color=#19e3b1>PIKI RECOVERY</color>   <color=#19e3b1>•</color>   EL TRABAJO INVISIBLE   <color=#19e3b1>•</color>   <color=#ffd93d>RECUPERÁ · HIDRATÁ · RESPIRÁ</color>   <color=#19e3b1>•</color>   ";
             float segW = UI.TextWidth(seg.Replace("<color=#19e3b1>", "").Replace("<color=#ffd93d>", "").Replace("</color>", ""), 56, true);
-            ledPeriod = Mathf.Max(1, segW);
+            float ledPeriod = Mathf.Max(1, segW);
             int reps = Mathf.CeilToInt(UI.Wd(c) / segW) + 2; var sb = new System.Text.StringBuilder(); for (int i = 0; i < reps; i++) sb.Append(seg);
             var t = UI.T(c, sb.ToString(), 0, 66, 56, Color.white, true, UI.Al.L, segW * reps + 100);
-            ledTexts.Add(t.rectTransform);
+            t.gameObject.AddComponent<LedScroll>().period = ledPeriod;
         }
 
         void BuildGoal(Transform S, float z, int dir, Material postM, Material netMat)
@@ -391,6 +394,7 @@ namespace Piki
         }
         public void Scoreboard(StadiumMode mode, bool done = false, string foot = null)
         {
+            if (sbTitle == null) return;
             bool match = mode == StadiumMode.Match && !done;
             sbTitle.gameObject.SetActive(match); sbHome.gameObject.SetActive(match); sbAway.gameObject.SetActive(match); sbScore.gameObject.SetActive(match); sbFoot.gameObject.SetActive(match || done);
             sbBig1.gameObject.SetActive(!match); sbBig2.gameObject.SetActive(!match);
@@ -400,12 +404,12 @@ namespace Piki
         }
         public void SetStadiumMode(StadiumMode m)
         {
-            standMat.mainTexture = m == StadiumMode.Match ? crowdFull : crowdEmpty;
+            standR.sharedMaterial.mainTexture = m == StadiumMode.Match ? crowdFull : crowdEmpty;
             players.gameObject.SetActive(m == StadiumMode.Match);
-            if (m == StadiumMode.Match) foreach (var p in team) p.Reset();
+            if (m == StadiumMode.Match) foreach (var p in players.GetComponentsInChildren<PlayerWalker>(true)) p.ResetPos();
             Scoreboard(m, m == StadiumMode.Dawn);
         }
-        public void MatchScore(int home, int away, int extra) { sbScore.text = home + " – " + away; sbTitle.text = "FINAL · 90+" + extra + "'"; }
+        public void MatchScore(int home, int away, int extra) { if (sbScore == null) return; sbScore.text = home + " – " + away; sbTitle.text = "FINAL · 90+" + extra + "'"; }
 
         /* ------------------------------ VESTUARIO ------------------------------ */
         static Texture2D Tiles(Color baseC, Color grout, int tiles, int size, int seed)
@@ -501,52 +505,58 @@ namespace Piki
             }, 2);
         }
 
-        /* ------------------------------ Jugador animado ------------------------------ */
-        class Player
+    }
+
+    /* ------------------------------ Jugador animado ------------------------------ */
+    public class PlayerWalker : MonoBehaviour
+    {
+        public Transform[] legs = new Transform[2], arms = new Transform[2];
+        public Vector3 target = new Vector3(-40.5f, 0, 0);
+        float phase, speed, idle;
+        public static PlayerWalker Make(Transform parent, Color jersey, Color shorts, Color socks, int seed)
         {
-            readonly Transform g; readonly Transform[] legs = new Transform[2], arms = new Transform[2];
-            float phase, speed, idle;
-            public Player(Transform parent, Color jersey, Color shorts, Color socks)
+            var g = Build.Group("Jugador " + (seed + 1), parent); var w = g.gameObject.AddComponent<PlayerWalker>();
+            Color[] skins = { Pal.Hex("#f1c7a5"), Pal.Hex("#d9a47f"), Pal.Hex("#a86f4c"), Pal.Hex("#6d4430") };
+            Material mJ = Mat.Lit(jersey, .3f), mS = Mat.Lit(shorts, .3f), mK = Mat.Lit(skins[seed % skins.Length], .3f), mSo = Mat.Lit(socks, .3f), mB = Mat.Lit(new Color(.07f, .07f, .07f), .5f);
+            Build.Prim(PrimitiveType.Capsule, g, new Vector3(0, 1.24f, 0), new Vector3(.38f, .36f, .24f), mJ);
+            Build.Prim(PrimitiveType.Cylinder, g, new Vector3(0, .9f, 0), new Vector3(.4f, .12f, .36f), mS);
+            Build.Prim(PrimitiveType.Sphere, g, new Vector3(0, 1.67f, 0), Vector3.one * .22f, mK);
+            Build.Prim(PrimitiveType.Sphere, g, new Vector3(0, 1.7f, -.01f), new Vector3(.23f, .17f, .23f), Mat.Lit(new Color(.1f, .07f, .05f), .2f));
+            for (int i = 0; i < 2; i++)
             {
-                g = Build.Group("Jugador", parent);
-                Color[] skins = { Pal.Hex("#f1c7a5"), Pal.Hex("#d9a47f"), Pal.Hex("#a86f4c"), Pal.Hex("#6d4430") };
-                Material mJ = Mat.Lit(jersey, .3f), mS = Mat.Lit(shorts, .3f), mK = Mat.Lit(skins[Random.Range(0, skins.Length)], .3f), mSo = Mat.Lit(socks, .3f), mB = Mat.Lit(new Color(.07f, .07f, .07f), .5f);
-                Build.Prim(PrimitiveType.Capsule, g, new Vector3(0, 1.24f, 0), new Vector3(.38f, .36f, .24f), mJ);
-                Build.Prim(PrimitiveType.Cylinder, g, new Vector3(0, .9f, 0), new Vector3(.4f, .12f, .36f), mS);
-                Build.Prim(PrimitiveType.Sphere, g, new Vector3(0, 1.67f, 0), Vector3.one * .22f, mK);
-                Build.Prim(PrimitiveType.Sphere, g, new Vector3(0, 1.7f, -.01f), new Vector3(.23f, .17f, .23f), Mat.Lit(new Color(.1f, .07f, .05f), .2f));
-                for (int i = 0; i < 2; i++)
-                {
-                    float s = i == 0 ? -1 : 1;
-                    var hip = Build.Group("cadera", g, new Vector3(s * .1f, .86f, 0));
-                    Build.Prim(PrimitiveType.Capsule, hip, new Vector3(0, -.38f, 0), new Vector3(.13f, .4f, .13f), mK);
-                    Build.Prim(PrimitiveType.Cylinder, hip, new Vector3(0, -.6f, 0), new Vector3(.14f, .17f, .14f), mSo);
-                    Build.Prim(PrimitiveType.Cube, hip, new Vector3(0, -.82f, .05f), new Vector3(.1f, .08f, .26f), mB);
-                    legs[i] = hip;
-                    var sho = Build.Group("hombro", g, new Vector3(s * .25f, 1.44f, 0));
-                    Build.Prim(PrimitiveType.Capsule, sho, new Vector3(0, -.3f, 0), new Vector3(.09f, .3f, .09f), mK);
-                    Build.Prim(PrimitiveType.Cylinder, sho, new Vector3(0, -.07f, 0), new Vector3(.13f, .09f, .13f), mJ);
-                    arms[i] = sho;
-                }
-                phase = Random.value * 6;
+                float s = i == 0 ? -1 : 1;
+                var hip = Build.Group("cadera", g, new Vector3(s * .1f, .86f, 0));
+                Build.Prim(PrimitiveType.Capsule, hip, new Vector3(0, -.38f, 0), new Vector3(.13f, .4f, .13f), mK);
+                Build.Prim(PrimitiveType.Cylinder, hip, new Vector3(0, -.6f, 0), new Vector3(.14f, .17f, .14f), mSo);
+                Build.Prim(PrimitiveType.Cube, hip, new Vector3(0, -.82f, .05f), new Vector3(.1f, .08f, .26f), mB);
+                w.legs[i] = hip;
+                var sho = Build.Group("hombro", g, new Vector3(s * .25f, 1.44f, 0));
+                Build.Prim(PrimitiveType.Capsule, sho, new Vector3(0, -.3f, 0), new Vector3(.09f, .3f, .09f), mK);
+                Build.Prim(PrimitiveType.Cylinder, sho, new Vector3(0, -.07f, 0), new Vector3(.13f, .09f, .13f), mJ);
+                w.arms[i] = sho;
             }
-            public void Reset()
-            {
-                g.gameObject.SetActive(true);
-                var p = new Vector3(Random.Range(-28f, 25f), 0, Random.Range(-40f, 40f)); if (Vector3.Distance(p, new Vector3(0, 0, -6)) < 9) p.x -= 13;
-                g.localPosition = p; speed = Random.Range(.9f, 1.5f); idle = Random.Range(0f, 5f);
-            }
-            public void Tick(float dt)
-            {
-                if (!g.gameObject.activeSelf) return;
-                if (idle > 0) { idle -= dt; foreach (var l in legs) l.localRotation = Quaternion.Slerp(l.localRotation, Quaternion.identity, dt * 5); return; }
-                Vector3 target = new Vector3(-40.5f, 0, 0), d = target - g.localPosition; d.y = 0;
-                if (d.magnitude < 1.2f) { g.gameObject.SetActive(false); return; }
-                g.localPosition += d.normalized * speed * dt; g.localRotation = Quaternion.LookRotation(d.normalized);
-                phase += dt * speed * 5.5f; float s = Mathf.Sin(phase) * 26;
-                legs[0].localEulerAngles = new Vector3(s, 0, 0); legs[1].localEulerAngles = new Vector3(-s, 0, 0);
-                arms[0].localEulerAngles = new Vector3(-s * .8f, 0, 0); arms[1].localEulerAngles = new Vector3(s * .8f, 0, 0);
-            }
+            // posición de ejemplo en la cancha (se sortea de nuevo al dar Play)
+            float a = seed * 2.4f; g.localPosition = new Vector3(-8 + Mathf.Cos(a) * 14, 0, 10 + Mathf.Sin(a) * 22);
+            g.localRotation = Quaternion.LookRotation(new Vector3(-40.5f, 0, 0) - g.localPosition);
+            return w;
+        }
+        void Start() { ResetPos(); }
+        public void ResetPos()
+        {
+            gameObject.SetActive(true);
+            var p = new Vector3(Random.Range(-28f, 25f), 0, Random.Range(-40f, 40f)); if (Vector3.Distance(p, new Vector3(0, 0, -6)) < 9) p.x -= 13;
+            transform.localPosition = p; speed = Random.Range(.9f, 1.5f); idle = Random.Range(0f, 5f); phase = Random.value * 6;
+        }
+        void Update()
+        {
+            float dt = Time.deltaTime;
+            if (idle > 0) { idle -= dt; foreach (var l in legs) l.localRotation = Quaternion.Slerp(l.localRotation, Quaternion.identity, dt * 5); return; }
+            Vector3 d = target - transform.localPosition; d.y = 0;
+            if (d.magnitude < 1.2f) { gameObject.SetActive(false); return; }
+            transform.localPosition += d.normalized * speed * dt; transform.localRotation = Quaternion.LookRotation(d.normalized);
+            phase += dt * speed * 5.5f; float s = Mathf.Sin(phase) * 26;
+            legs[0].localEulerAngles = new Vector3(s, 0, 0); legs[1].localEulerAngles = new Vector3(-s, 0, 0);
+            arms[0].localEulerAngles = new Vector3(-s * .8f, 0, 0); arms[1].localEulerAngles = new Vector3(s * .8f, 0, 0);
         }
     }
 

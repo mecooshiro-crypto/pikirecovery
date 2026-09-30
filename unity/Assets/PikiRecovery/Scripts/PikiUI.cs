@@ -85,7 +85,7 @@ namespace Piki
         {
             var go = new GameObject("measure", typeof(RectTransform)); var t = go.AddComponent<Text>();
             t.font = Font; t.fontSize = Mathf.RoundToInt(size); t.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal; t.horizontalOverflow = HorizontalWrapMode.Overflow; t.text = s;
-            float w = t.preferredWidth; UnityEngine.Object.Destroy(go); return w;
+            float w = t.preferredWidth; Build.Kill(go); return w;
         }
         public static float Chip(RectTransform p, float x, float y, string label, Color col, float size = 19, float h = 38, float padX = 16, Color? text = null)
         {
@@ -128,6 +128,7 @@ namespace Piki
         public static void Fade(RectTransform c, float a) { var g = c.GetComponent<CanvasGroup>(); if (g != null) g.alpha = a; }
         public static Coroutine Appear(RectTransform c, float delay = 0, float dur = .45f)
         {
+            if (!Application.isPlaying) return null; // en el editor se ve completo
             Fade(c, 0); var baseS = c.localScale;
             return Runner.I.StartCoroutine(AppearCo(c, delay, dur, baseS));
         }

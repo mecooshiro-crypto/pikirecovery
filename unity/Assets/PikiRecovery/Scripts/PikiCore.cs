@@ -11,6 +11,18 @@ using UnityEngine.Rendering;
 
 namespace Piki
 {
+    /* ------------------------------------------------------------------
+       Persistencia: cuando el constructor de escenas (menú Piki Recovery)
+       está activo, cada textura, material, sprite y malla que se genera se
+       guarda como asset para que quede en la escena.
+       ------------------------------------------------------------------ */
+    public static class Persist
+    {
+        public static Action<UnityEngine.Object, string> Save;
+        public static T Keep<T>(T o, string name) where T : UnityEngine.Object { if (Save != null && o != null) Save(o, name); return o; }
+        public static bool Baking { get { return Save != null; } }
+    }
+
     public static class Ease
     {
         public static float InOut(float t) { return t < .5f ? 2 * t * t : 1 - Mathf.Pow(-2 * t + 2, 2) / 2; }
@@ -55,7 +67,7 @@ namespace Piki
             var m = new Material(LitShader); m.color = c;
             if (tex != null) m.mainTexture = tex;
             m.SetFloat("_Smoothness", smooth); m.SetFloat("_Glossiness", smooth); m.SetFloat("_Metallic", metal);
-            return m;
+            return Persist.Keep(m, "Lit_" + ColorUtility.ToHtmlStringRGB(c));
         }
         public static Material Emissive(Color c, Color em, Texture tex = null)
         {
@@ -69,7 +81,7 @@ namespace Piki
         {
             var m = new Material(UnlitShader); m.color = c;
             if (tex != null) m.mainTexture = tex;
-            m.renderQueue = queue; return m;
+            m.renderQueue = queue; return Persist.Keep(m, "Unlit_" + ColorUtility.ToHtmlStringRGB(c));
         }
     }
 
@@ -109,7 +121,7 @@ namespace Piki
         public Texture2D ToTex(bool mip = true, TextureWrapMode wrap = TextureWrapMode.Clamp)
         {
             var t = new Texture2D(W, H, TextureFormat.RGBA32, mip, false); t.wrapMode = wrap; t.filterMode = FilterMode.Trilinear; t.anisoLevel = 8;
-            t.SetPixels32(P); t.Apply(mip, false); return t;
+            t.SetPixels32(P); t.Apply(mip, false); return Persist.Keep(t, "Tex_" + W + "x" + H);
         }
     }
 
@@ -131,7 +143,7 @@ namespace Piki
                     px[y * w + x] = o;
                 }
             var t = new Texture2D(w, h, TextureFormat.RGBA32, mip, false); t.wrapMode = wrap; t.filterMode = FilterMode.Trilinear; t.anisoLevel = 4;
-            t.SetPixels(px); t.Apply(mip, false); return t;
+            t.SetPixels(px); t.Apply(mip, false); return Persist.Keep(t, "Tex_" + w + "x" + h);
         }
         public static Texture2D Gradient(Color[] stops, float[] at, int h = 256)
         {
@@ -142,6 +154,7 @@ namespace Piki
             }, 1, TextureWrapMode.Clamp, false);
         }
         static Texture2D glow;
+        public static void ClearCache() { glow = null; }
         public static Texture2D Glow { get { if (glow == null) glow = Func(128, 128, (u, v) => { float r = Mathf.Clamp01(Vector2.Distance(new Vector2(u, v), new Vector2(.5f, .5f)) * 2); float a = Mathf.Pow(1 - r, 2.2f); return new Color(1, 1, 1, a); }); return glow; } }
     }
 
@@ -149,13 +162,14 @@ namespace Piki
     public static class Spr
     {
         static readonly Dictionary<string, Sprite> cache = new Dictionary<string, Sprite>();
+        public static void ClearCache() { cache.Clear(); }
         static Sprite Make(string key, int size, Func<float, float, Color> f, int ss = 3, float border = 0)
         {
-            Sprite s; if (cache.TryGetValue(key, out s)) return s;
+            Sprite s; if (cache.TryGetValue(key, out s) && s != null) return s;
             var tex = Tex.Func(size, size, (u, v) => f(u * 2 - 1, v * 2 - 1), ss, TextureWrapMode.Clamp, false);
             tex.filterMode = FilterMode.Bilinear;
             s = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(.5f, .5f), 100, 0, SpriteMeshType.FullRect, new Vector4(border, border, border, border));
-            s.name = key; cache[key] = s; return s;
+            s.name = key; cache[key] = Persist.Keep(s, "Sprite_" + key); return s;
         }
         static Color W(bool b) { return b ? Color.white : new Color(1, 1, 1, 0); }
         static bool Circ(float u, float v, float cx, float cy, float r) { return (u - cx) * (u - cx) + (v - cy) * (v - cy) <= r * r; }
@@ -273,6 +287,10 @@ namespace Piki
     /* ------------------------------ Mallas y objetos ------------------------------ */
     public static class Build
     {
+        // Destroy en juego, DestroyImmediate en el editor
+        public static void Kill(UnityEngine.Object o) { if (o == null) return; if (Application.isPlaying) UnityEngine.Object.Destroy(o); else UnityEngine.Object.DestroyImmediate(o); }
+        // Partículas fijas (estrellas, polvo): se emiten al iniciar la escena
+        public static void EmitStatic(ParticleSystem ps, int n) { var e = ps.gameObject.AddComponent<EmitOnStart>(); e.count = n; }
         public static Transform Group(string name, Transform parent, Vector3 pos = default(Vector3))
         {
             var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = pos; return g;
@@ -301,7 +319,7 @@ namespace Piki
                 var t2 = new List<int>(tri); for (int i = 0; i < tri.Count; i += 3) { t2.Add(tri[i] + n); t2.Add(tri[i + 2] + n); t2.Add(tri[i + 1] + n); }
                 v = v2; uv = uv2; tri = t2;
             }
-            m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(tri, 0); m.RecalculateNormals(); m.RecalculateBounds(); return m;
+            m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(tri, 0); m.RecalculateNormals(); m.RecalculateBounds(); return Persist.Keep(m, "Mesh_" + v.Count);
         }
         // Plano horizontal (XZ) con UV 0..1 (o repetido)
         public static Mesh Floor(float w, float d, float ru = 1, float rv = 1)
@@ -345,7 +363,7 @@ namespace Piki
             main.startSpeed = 0; main.simulationSpace = ParticleSystemSimulationSpace.Local;
             var em = ps.emission; em.enabled = false;
             var sh = ps.shape; sh.enabled = false;
-            var r = go.GetComponent<ParticleSystemRenderer>(); r.material = Mat.Unlit(Color.white, Tex.Glow); r.shadowCastingMode = ShadowCastingMode.Off;
+            var r = go.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = Mat.Unlit(Color.white, Tex.Glow); r.shadowCastingMode = ShadowCastingMode.Off;
             return ps;
         }
     }
@@ -359,6 +377,34 @@ namespace Piki
             Vector3 d = transform.position - cam.position; if (yOnly) d.y = 0;
             if (d.sqrMagnitude > 1e-6f) transform.rotation = Quaternion.LookRotation(d, Vector3.up);
         }
+    }
+
+    /* ------------------------------ Componentes de animación del entorno ------------------------------ */
+    public class EmitOnStart : MonoBehaviour
+    {
+        public int count = 100;
+        void Start() { var ps = GetComponent<ParticleSystem>(); if (ps == null) return; ps.Play(); ps.Emit(count); }
+    }
+    public class Spin : MonoBehaviour
+    {
+        public Vector3 degreesPerSecond = new Vector3(0, 10, 0);
+        void Update() { transform.Rotate(degreesPerSecond * Time.deltaTime, Space.Self); }
+    }
+    public class Pulse : MonoBehaviour
+    {
+        public float amount = .02f, speed = .8f, phase; Vector3 baseScale;
+        void Start() { baseScale = transform.localScale; }
+        void Update() { transform.localScale = baseScale * (1 + Mathf.Sin(Time.time * speed + phase) * amount); }
+    }
+    public class FlagWave : MonoBehaviour
+    {
+        public float phase;
+        void Update() { transform.localEulerAngles = new Vector3(0, Mathf.Sin(Time.time * 2.2f + phase) * 28 + 30, 0); }
+    }
+    public class LedScroll : MonoBehaviour
+    {
+        public float period = 1000, speed = 180;
+        void Update() { var rt = (RectTransform)transform; var p = rt.anchoredPosition; p.x = -((Time.time * speed) % period); rt.anchoredPosition = p; }
     }
 
     /* ------------------------------ Tweens / corrutinas ------------------------------ */

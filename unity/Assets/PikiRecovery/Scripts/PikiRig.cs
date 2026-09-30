@@ -59,8 +59,9 @@ namespace Piki
     public class PikiRig : MonoBehaviour
     {
         public static PikiRig I; public static Transform CamT;
-        public Camera Cam { get; private set; }
-        public Transform Head { get; private set; }
+        [SerializeField] Camera cam; [SerializeField] Transform head;
+        public Camera Cam { get { return cam; } }
+        public Transform Head { get { return head; } }
         public bool XR { get; private set; }
         public bool Holding { get; private set; }
         public bool HoldUsed { get; set; }
@@ -70,7 +71,7 @@ namespace Piki
         float yaw, pitch, gyroYawRef; bool gyro, gyroRefSet;
         bool pressing; float dragDist;
         PikiButton hovered; float fuse;
-        Transform reticle; Transform reticleFill; LineRenderer laser;
+        [SerializeField] Transform reticle, reticleFill; [SerializeField] LineRenderer laser;
         readonly List<UXR.InputDevice> devs = new List<UXR.InputDevice>();
         bool trigPrev;
 
@@ -85,7 +86,7 @@ namespace Piki
             cam.transform.SetParent(head, false); cam.transform.localPosition = Vector3.zero; cam.transform.localRotation = Quaternion.identity;
             cam.nearClipPlane = .05f; cam.farClipPlane = 1600; cam.fieldOfView = 70;
             cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(.02f, .04f, .08f);
-            rig.Cam = cam; rig.Head = head; CamT = cam.transform; I = rig;
+            rig.cam = cam; rig.head = head; CamT = cam.transform; I = rig;
             rig.BuildReticle();
             return rig;
         }
@@ -98,9 +99,10 @@ namespace Piki
             reticleFill = fill.transform; reticle = c;
             c.GetComponent<Canvas>().sortingOrder = 100;
             var lg = new GameObject("Laser"); lg.transform.SetParent(transform, false);
-            laser = lg.AddComponent<LineRenderer>(); laser.material = Mat.Unlit(Pal.A(Pal.Teal, .7f)); laser.widthMultiplier = .006f; laser.positionCount = 2; laser.enabled = false; laser.useWorldSpace = true;
+            laser = lg.AddComponent<LineRenderer>(); laser.sharedMaterial = Mat.Unlit(Pal.A(Pal.Teal, .7f)); laser.widthMultiplier = .006f; laser.positionCount = 2; laser.enabled = false; laser.useWorldSpace = true;
         }
 
+        void Awake() { I = this; if (cam != null) CamT = cam.transform; }
         void Start()
         {
             if (!XRActive() && PIn.GyroAvailable && Application.isMobilePlatform) { PIn.EnableGyro(); gyro = true; }

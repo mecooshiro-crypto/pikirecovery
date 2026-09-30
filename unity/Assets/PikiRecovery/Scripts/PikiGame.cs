@@ -4,9 +4,9 @@
 //  → Etapa 1 Recuperación física → Etapa 2 Recuperación nutricional
 //  → Etapa 3 Vuelta a la calma → RECUPERACIÓN COMPLETADA
 //
-//  Uso: abrí cualquier escena y apretá Play. PikiBoot crea todo solo.
-//  (o agregá este componente a un GameObject vacío para elegir la etapa
-//  inicial desde el Inspector).
+//  Escenas: 00_Inicio · 01_Cancha · 02_Vestuario · 03_Calma
+//  (se construyen desde el menú Piki Recovery ▸ Construir escenas).
+//  Abrí 00_Inicio y apretá Play.
 // =====================================================================
 using System;
 using System.Collections;
@@ -18,78 +18,160 @@ using Random = UnityEngine.Random;
 
 namespace Piki
 {
-    public static class PikiBoot
+    public static class Scenes
     {
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Boot()
-        {
-            if (UnityEngine.Object.FindFirstObjectByType<PikiGame>() == null) new GameObject("Piki Recovery").AddComponent<PikiGame>();
-        }
+        public const string Inicio = "00_Inicio", Cancha = "01_Cancha", Vestuario = "02_Vestuario", Calma = "03_Calma";
+    }
+    public class Nutri { public float E = 30, H = 22, R = 18, t, balance; public int good, bad, missed, over, score, stars, level = 1; public bool running; }
+    public class CalmRes { public int cycles = 6, sync, hr = 64; public bool guided = true; }
+    public class CardInfo { public string kicker, title, sub; public Color color = Pal.Teal; public float hold = 1.5f, fadeT = .9f; }
+
+    // Datos que viajan de una escena a la otra durante una partida
+    public static class PikiSession
+    {
+        public static MatchStats match; public static List<Situation> sits; public static int firstTry;
+        public static Nutri nutri; public static CalmRes calm; public static CardInfo card;
+        public static void NewRun() { match = MatchStats.New(); sits = null; firstTry = 0; nutri = null; calm = null; }
     }
 
     public class PikiGame : MonoBehaviour
     {
         public enum StartAt { Inicio, Deporte, Cancha, Fisica, Situacion, Nutricion, Minijuego, Calma, Respiracion, Final }
-        [Tooltip("Etapa en la que arranca (útil para probar)")] public StartAt startAt = StartAt.Inicio;
+        [Tooltip("Etapa con la que arranca esta escena")] public StartAt startAt = StartAt.Inicio;
 
-        PikiRig rig; PikiEnv env; PikiAudio au;
+        // Referencias guardadas en la escena por el constructor (menú Piki Recovery)
+        [SerializeField] PikiRig rig; [SerializeField] PikiEnv env;
+        [SerializeField] MeshRenderer fadeR; [SerializeField] RectTransform card; [SerializeField] Text cardKicker, cardTitle, cardSub;
+        [SerializeField] Text hintText; [SerializeField] GameObject overlay; [SerializeField] GameObject previewRoot;
+
+        PikiAudio au; Material fadeM; bool leaving;
         Transform stage, screen; float floorY; PikiBody body;
-        MatchStats match; List<Situation> sits; int firstTry;
-        Nutri nutri; CalmRes calm;
-        MeshRenderer fadeR; Material fadeM; RectTransform card; Text cardKicker, cardTitle, cardSub;
-        Text hintText; GameObject overlay;
+        MatchStats match { get { return PikiSession.match; } set { PikiSession.match = value; } }
+        List<Situation> sits { get { return PikiSession.sits; } set { PikiSession.sits = value; } }
+        int firstTry { get { return PikiSession.firstTry; } set { PikiSession.firstTry = value; } }
+        Nutri nutri { get { return PikiSession.nutri; } set { PikiSession.nutri = value; } }
+        CalmRes calm { get { return PikiSession.calm; } set { PikiSession.calm = value; } }
 
-        class Nutri { public float E = 30, H = 22, R = 18, t, balance; public int good, bad, missed, over, score, stars, level = 1; public bool running; }
-        class CalmRes { public int cycles = 6, sync, hr = 64; public bool guided = true; }
+        public static EnvName EnvFor(StartAt s)
+        {
+            if (s == StartAt.Inicio || s == StartAt.Deporte) return EnvName.Hub;
+            if (s == StartAt.Nutricion || s == StartAt.Minijuego) return EnvName.Locker;
+            return EnvName.Stadium;
+        }
+        public static StadiumMode ModeFor(StartAt s) { return s == StartAt.Calma || s == StartAt.Respiracion ? StadiumMode.Calm : s == StartAt.Final ? StadiumMode.Dawn : StadiumMode.Match; }
+
+        /* ------------------------------ Construcción de la escena ------------------------------ */
+        // Lo llama el constructor de escenas en el editor (y también en juego si la escena está vacía)
+        public void Bake(bool allEnvironments, bool withPreview)
+        {
+            rig = PikiRig.Create(Application.isPlaying ? Camera.main : null);
+            env = new GameObject("Entornos").AddComponent<PikiEnv>(); env.rig = rig;
+            var need = EnvFor(startAt);
+            env.Create(allEnvironments || need == EnvName.Hub, allEnvironments || need == EnvName.Stadium, allEnvironments || need == EnvName.Locker);
+            BuildFadeAndCard(); BuildOverlay();
+            if (match == null) match = MatchStats.New();
+            env.MatchScore(match.home, match.away, match.minutes - 90);
+            env.Set(need, ModeFor(startAt));
+            if (withPreview)
+            {
+                NewStage();
+                if (need == EnvName.Hub) ShowWelcome();
+                else if (need == EnvName.Locker) ShowNutriIntro();
+                else if (ModeFor(startAt) == StadiumMode.Match) ShowArrival();
+                else ShowCalmIntro();
+                previewRoot = stage.gameObject; previewRoot.name = "UI (vista previa · se regenera al dar Play)";
+                stage = null; screen = null; Hint("");
+            }
+        }
 
         /* ------------------------------ Arranque ------------------------------ */
         void Awake()
         {
             QualitySettings.shadows = ShadowQuality.Disable;
-            Camera existing = Camera.main;
-            foreach (var c in FindObjectsByType<Camera>(FindObjectsSortMode.None)) if (c != existing) c.gameObject.SetActive(false);
-            foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) l.gameObject.SetActive(false);
+            if (previewRoot != null) Destroy(previewRoot);
+            if (rig == null)
+            {
+                // Escena sin construir: se arma todo al vuelo
+                Camera existing = Camera.main;
+                foreach (var c in FindObjectsByType<Camera>(FindObjectsSortMode.None)) if (c != existing) c.gameObject.SetActive(false);
+                foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) l.gameObject.SetActive(false);
+                Bake(true, false);
+            }
             au = gameObject.AddComponent<PikiAudio>();
-            rig = PikiRig.Create(existing);
             rig.onMute = () => au.SetMuted(!au.Muted);
             rig.onRecenter = Recenter;
-            env = new GameObject("Entornos").AddComponent<PikiEnv>(); env.Create();
-            BuildFadeAndCard(); BuildOverlay();
+            fadeM = new Material(fadeR.sharedMaterial); fadeR.sharedMaterial = fadeM;
+            fadeM.color = Color.black; fadeR.gameObject.SetActive(true);
         }
         void Start()
         {
-            match = MatchStats.New(); env.MatchScore(match.home, match.away, match.minutes - 90);
-            fadeM.color = Color.black;
-            switch (startAt)
-            {
-                case StartAt.Deporte: env.Set(EnvName.Hub); NewStage(); ShowSport(); break;
-                case StartAt.Cancha: env.Set(EnvName.Stadium, StadiumMode.Match); NewStage(); au.CrowdStart(.4f); ShowArrival(); break;
-                case StartAt.Fisica: env.Set(EnvName.Stadium, StadiumMode.Match); NewStage(); ShowPhysIntro(); break;
-                case StartAt.Situacion: env.Set(EnvName.Stadium, StadiumMode.Match); NewStage(); sits = Content.Generate(match); ShowSituation(0); break;
-                case StartAt.Nutricion: env.Set(EnvName.Locker); NewStage(); ShowNutriIntro(); break;
-                case StartAt.Minijuego: env.Set(EnvName.Locker); NewStage(); StartCoroutine(NutritionGame()); break;
-                case StartAt.Calma: env.Set(EnvName.Stadium, StadiumMode.Calm); NewStage(); au.PadStart(.5f); ShowCalmIntro(); break;
-                case StartAt.Respiracion: env.Set(EnvName.Stadium, StadiumMode.Calm); NewStage(); au.PadStart(.5f); StartCoroutine(Breathing()); break;
-                case StartAt.Final:
-                    sits = Content.Generate(match); firstTry = 2; nutri = new Nutri { score = 82, stars = 2, good = 19 }; calm = new CalmRes { guided = false, sync = 86 };
-                    env.Set(EnvName.Stadium, StadiumMode.Dawn); NewStage(); ShowFinal(); break;
-                default: env.Set(EnvName.Hub); NewStage(); ShowWelcome(); break;
-            }
-            StartCoroutine(Fade(0, 1.2f));
+            if (match == null) match = MatchStats.New();
+            env.MatchScore(match.home, match.away, match.minutes - 90);
+            StartCoroutine(Begin());
         }
-        void Update() { if (overlay != null) overlay.SetActive(!rig.XR); }
+        IEnumerator Begin()
+        {
+            var st = startAt;
+            env.Set(EnvFor(st), ModeFor(st)); NewStage();
+            if (st == StartAt.Cancha) au.CrowdStart(.42f);
+            if (st == StartAt.Fisica || st == StartAt.Situacion) au.CrowdStart(.22f);
+            if (st == StartAt.Calma || st == StartAt.Respiracion || st == StartAt.Final) au.PadStart(.55f);
+            // Cartel de transición que viene de la escena anterior
+            var c = PikiSession.card; PikiSession.card = null;
+            if (c != null)
+            {
+                cardKicker.text = c.kicker; cardKicker.color = c.color; cardTitle.text = c.title; cardSub.text = c.sub ?? "";
+                card.gameObject.SetActive(true); UI.Fade(card, 0);
+                yield return Tw.Co(.5f, k => UI.Fade(card, k));
+                yield return new WaitForSeconds(c.hold);
+                yield return Tw.Co(.45f, k => UI.Fade(card, 1 - k)); card.gameObject.SetActive(false);
+            }
+            StartCoroutine(Fade(0, c != null ? c.fadeT : 1.2f));
+            switch (st)
+            {
+                case StartAt.Deporte: ShowSport(); break;
+                case StartAt.Cancha: au.Whistle(); Tw.Later(1.4f, au.CrowdCheer); ShowArrival(); break;
+                case StartAt.Fisica: ShowPhysIntro(); break;
+                case StartAt.Situacion: sits = Content.Generate(match); ShowSituation(0); break;
+                case StartAt.Nutricion: ShowNutriIntro(); break;
+                case StartAt.Minijuego: StartCoroutine(NutritionGame()); break;
+                case StartAt.Calma: ShowCalmIntro(); break;
+                case StartAt.Respiracion: StartCoroutine(Breathing()); break;
+                case StartAt.Final:
+                    if (sits == null) { sits = Content.Generate(match); firstTry = 2; }
+                    if (nutri == null) nutri = new Nutri { score = 82, stars = 2, good = 19 };
+                    if (calm == null) calm = new CalmRes { guided = false, sync = 86 };
+                    ShowFinal(); break;
+                default: ShowWelcome(); break;
+            }
+        }
+        void Update() { if (overlay != null && rig != null) overlay.SetActive(!rig.XR); }
+
+        /* Pasa a otra escena (con fundido y cartel). Si la escena no está en Build Settings,
+           cambia de entorno dentro de la misma escena. */
+        IEnumerator Go(string scene, Action fallback, string kicker = null, string title = null, string sub = null, Color? col = null, float hold = 1.5f, float fadeT = .9f)
+        {
+            if (Application.CanStreamedLevelBeLoaded(scene))
+            {
+                leaving = true; au.Whoosh();
+                yield return Fade(1, fadeT);
+                PikiSession.card = title == null ? null : new CardInfo { kicker = kicker, title = title, sub = sub, color = col ?? Pal.Teal, hold = hold, fadeT = fadeT };
+                UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+            }
+            else yield return Transition(fallback, kicker, title, sub, col, hold, fadeT);
+        }
 
         /* ------------------------------ Utilidades de escena ------------------------------ */
         void NewStage()
         {
-            if (stage != null) Destroy(stage.gameObject);
+            if (stage != null) Build.Kill(stage.gameObject);
             body = null; screen = null;
             stage = Build.Group("Escenario", null);
             float lift = rig.XR ? Mathf.Clamp(rig.HeadPos.y - 1.6f, -.6f, .4f) : 0;
             var hp = rig.HeadPos; stage.position = new Vector3(hp.x, lift, hp.z); stage.rotation = Quaternion.Euler(0, rig.Yaw, 0);
             floorY = -lift;
         }
-        Transform NewScreen() { if (screen != null) Destroy(screen.gameObject); screen = Build.Group("Pantalla", stage); return screen; }
+        Transform NewScreen() { if (screen != null) Build.Kill(screen.gameObject); screen = Build.Group("Pantalla", stage); return screen; }
         void Recenter() { if (stage == null) return; var hp = rig.HeadPos; stage.position = new Vector3(hp.x, stage.position.y, hp.z); stage.rotation = Quaternion.Euler(0, rig.Yaw, 0); }
         RectTransform Panel(Vector3 pos, float w, float h, Color accent, Transform parent = null)
         {
@@ -104,9 +186,9 @@ namespace Piki
         void BuildFadeAndCard()
         {
             var cam = rig.Cam.transform;
-            fadeM = Mat.Unlit(Color.black, null, 3000);
-            var f = Build.MeshObj("Fundido", cam, Build.Wall(1, 1), fadeM); f.transform.localPosition = new Vector3(0, 0, 1.3f); f.transform.localScale = new Vector3(7, 7, 1);
-            fadeR = f.GetComponent<MeshRenderer>(); fadeR.sortingOrder = 40;
+            var fm = Mat.Unlit(new Color(0, 0, 0, 0), null, 4000);
+            var f = Build.MeshObj("Fundido", cam, Build.Wall(1, 1), fm); f.transform.localPosition = new Vector3(0, 0, 1.3f); f.transform.localScale = new Vector3(7, 7, 1);
+            fadeR = f.GetComponent<MeshRenderer>(); fadeR.sortingOrder = 40; f.SetActive(false);
             card = UI.Canvas(cam, new Vector3(0, 0, 1.1f), 1.5f, .56f, Vector3.zero, "Cartel");
             card.GetComponent<Canvas>().sortingOrder = 50;
             float W = UI.Wd(card), H = UI.Ht(card);
@@ -114,14 +196,13 @@ namespace Piki
             cardTitle = UI.T(card, "", W / 2, H * .6f, 70, Color.white, true, UI.Al.C, W);
             cardSub = UI.T(card, "", W / 2, H * .84f, 26, Pal.Muted, false, UI.Al.C, W);
             // El fundido y el cartel se dibujan por encima de todo lo demás
-            fadeM.renderQueue = 4000;
-            var cm = new Material(Canvas.GetDefaultCanvasMaterial()); cm.renderQueue = 4001;
+            var cm = new Material(Canvas.GetDefaultCanvasMaterial()); cm.renderQueue = 4001; Persist.Keep(cm, "CartelUI");
             foreach (var g in card.GetComponentsInChildren<Graphic>(true)) g.material = cm;
             card.gameObject.SetActive(false);
         }
         void BuildOverlay()
         {
-            overlay = new GameObject("Overlay", typeof(RectTransform));
+            overlay = new GameObject("Overlay (pantalla)", typeof(RectTransform));
             var c = overlay.AddComponent<Canvas>(); c.renderMode = RenderMode.ScreenSpaceOverlay; c.sortingOrder = 10;
             var sc = overlay.AddComponent<CanvasScaler>(); sc.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; sc.referenceResolution = new Vector2(1280, 720); sc.matchWidthOrHeight = .5f;
             var root = (RectTransform)overlay.transform;
@@ -224,11 +305,11 @@ namespace Piki
            =================================================================== */
         IEnumerator StartMatch()
         {
-            match = MatchStats.New(); env.MatchScore(match.home, match.away, match.minutes - 90);
-            sits = null; nutri = null; calm = null;
+            PikiSession.NewRun(); env.MatchScore(match.home, match.away, match.minutes - 90);
             au.PadStop(1); au.BeatStop(.5f);
-            yield return Transition(() => { env.Set(EnvName.Stadium, StadiumMode.Match); NewStage(); NewScreen(); au.CrowdStart(.42f); },
+            yield return Go(Scenes.Cancha, () => { env.Set(EnvName.Stadium, StadiumMode.Match); NewStage(); NewScreen(); au.CrowdStart(.42f); },
                 "FÚTBOL", "Estadio Piki", "Final del partido · Piki FC " + match.home + " – " + match.away + " Visitante", Pal.Teal, 1.8f);
+            if (leaving) yield break;
             au.Whistle(); Tw.Later(1.4f, au.CrowdCheer);
             ShowArrival();
         }
@@ -433,7 +514,8 @@ namespace Piki
 
         IEnumerator StartNutrition()
         {
-            yield return Transition(() => { au.CrowdStop(1.5f); env.Set(EnvName.Locker); NewStage(); ShowNutriIntro(); },
+            au.CrowdStop(1.5f);
+            yield return Go(Scenes.Vestuario, () => { env.Set(EnvName.Locker); NewStage(); ShowNutriIntro(); },
                 "ETAPA 2 DE 3", "Recuperación nutricional", "Vestuario · Ventana de recuperación post-partido", Pal.Yellow, 1.8f);
         }
         void ShowNutriIntro()
@@ -650,7 +732,7 @@ namespace Piki
         IEnumerator StartCalm()
         {
             au.BeatStop(1);
-            yield return Transition(() => { env.Set(EnvName.Stadium, StadiumMode.Calm); NewStage(); au.PadStart(.55f); ShowCalmIntro(); },
+            yield return Go(Scenes.Calma, () => { env.Set(EnvName.Stadium, StadiumMode.Calm); NewStage(); au.PadStart(.55f); ShowCalmIntro(); },
                 "ETAPA 3 DE 3", "Vuelta a la calma", "El estadio se vació. El ruido se apagó.", Pal.Purple, 2.4f, 1.6f);
         }
         void ShowCalmIntro()
@@ -791,7 +873,8 @@ namespace Piki
         }
         IEnumerator GoHome()
         {
-            yield return Transition(() => { au.PadStop(2); au.CrowdStop(1); env.Set(EnvName.Hub); NewStage(); ShowWelcome(); }, null, null, null, null, 0, .8f);
+            au.PadStop(1.5f); au.CrowdStop(1);
+            yield return Go(Scenes.Inicio, () => { env.Set(EnvName.Hub); NewStage(); ShowWelcome(); }, null, null, null, null, 0, .8f);
         }
     }
 }
