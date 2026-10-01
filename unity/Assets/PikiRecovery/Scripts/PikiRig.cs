@@ -67,6 +67,12 @@ namespace Piki
         public bool HoldUsed { get; set; }
         public float FuseTime = 1.4f;
         public System.Action onMute, onRecenter;
+        public PikiTool Held { get; private set; }
+        public bool GazeMode { get; private set; }
+        bool sticky;
+        public void ForceRelease() { if (Held != null) { var t = Held; Held = null; sticky = false; t.Release(); } }
+        // Modo solo-mirada: la herramienta queda "pegada" a la mirada hasta que el juego la suelta
+        public void StickyGrab(PikiTool t) { if (Held != null || t == null || t.Disabled) return; Held = t; sticky = true; t.Grab(); }
 
         float yaw, pitch, gyroYawRef; bool gyro, gyroRefSet;
         bool pressing; float dragDist;
@@ -148,7 +154,7 @@ namespace Piki
             if (XR) ApplyHeadPose();
             else
             {
-                if (pressing && pointerHeld)
+                if (pressing && pointerHeld && Held == null)
                 {
                     Vector2 d = pos - lastPos; dragDist += d.magnitude; lastPos = pos;
                     float k = 90f / Mathf.Max(400, Screen.height);
@@ -180,11 +186,25 @@ namespace Piki
             }
             else if (XR || gyro && !pointerHeld && !PIn.TouchUp) { ray = new Ray(Cam.transform.position, Cam.transform.forward); gazeMode = XR; clickNow = trig && !trigPrev; }
             else { ray = Cam.ScreenPointToRay(pos); clickNow = (PIn.MouseUp || PIn.TouchUp) && pressing && dragDist < 14; }
+            bool pressNow = PIn.MouseDown || PIn.TouchDown || (trig && !trigPrev);
+            bool releaseNow = PIn.MouseUp || PIn.TouchUp || (!trig && trigPrev);
             trigPrev = trig;
             if (PIn.MouseUp || PIn.TouchUp) pressing = false;
+            GazeMode = gazeMode;
 
-            PikiButton hit = null; RaycastHit rh; float hitDist = 6;
-            if (Physics.Raycast(ray, out rh, 60f)) { hit = rh.collider.GetComponentInParent<PikiButton>(); hitDist = rh.distance; if (hit != null && hit.Disabled) hit = null; }
+            PikiButton hit = null; PikiTool hitTool = null; RaycastHit rh; float hitDist = 6;
+            if (Physics.Raycast(ray, out rh, 60f))
+            {
+                hit = rh.collider.GetComponentInParent<PikiButton>(); hitTool = rh.collider.GetComponentInParent<PikiTool>(); hitDist = rh.distance;
+                if (hit != null && hit.Disabled) hit = null;
+            }
+            // ---- agarrar y arrastrar herramientas (frío, calor, masaje) ----
+            if (Held == null && pressNow && hitTool != null && !hitTool.Disabled && !gazeMode) { Held = hitTool; sticky = false; Held.Grab(); }
+            if (Held != null)
+            {
+                Held.DragTo(ray, Cam.transform.position);
+                if (!sticky && releaseNow) ForceRelease();
+            }
             if (hit != hovered) { if (hovered != null) hovered.SetHover(false); hovered = hit; if (hovered != null) hovered.SetHover(true); fuse = 0; }
             if (hovered != null && clickNow) { hovered.Click(); fuse = 0; }
             // Fusible por mirada (VR sin controles)

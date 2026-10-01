@@ -343,7 +343,7 @@ namespace Piki
             UI.T(p, "Recuperación física", 48, 150, 54, Color.white, true);
             UI.Wrap(p, "Después del partido tu cuerpo te muestra señales. En cada situación el sistema genera al azar qué sentís, en qué zona y con qué intensidad.", 48, 204, W - 96, 34, 24, Pal.Body);
             float x = 48; foreach (Kind k in Enum.GetValues(typeof(Kind))) x += UI.Chip(p, x, 300, Content.KindLabel(k), Content.KindColor(k), 18) + 12;
-            UI.Wrap(p, "Leé las señales, interpretá qué está pasando y decidí qué necesita la zona: no hay instrucciones, la decisión es tuya.", 48, 390, W - 96, 34, 24, Pal.Text, true);
+            UI.Wrap(p, "Leé las señales, decidí qué necesita la zona y aplicalo vos: agarrá la bolsa de hielo, la compresa tibia o la pelota de masaje y pasala por la zona marcada.", 48, 390, W - 96, 34, 24, Pal.Text, true);
             UI.T(p, "3 situaciones · distintas en cada partida", 48, H - 42, 19, Pal.Muted);
             var b = Btn("VER SITUACIÓN 1  →", new Vector3(-.4f, .9f, 2.72f), 1.1f, .22f, UI.Style.Primary, () => ShowSituation(0));
             UI.Appear(p); UI.Appear(b, .25f);
@@ -352,8 +352,8 @@ namespace Piki
         void ShowSituation(int i)
         {
             NewScreen(); EnsureBody();
-            var s = sits[i]; body.SetMarker(s.pos); body.spin = true;
-            Hint("Situación " + (i + 1) + " de 3 · ¿Qué necesita la zona? Elegí Frío, Calor o Masajes");
+            var s = sits[i]; body.SetMarker(s.pos); body.spin = false;
+            Hint("Situación " + (i + 1) + " de 3 · Arrastrá la herramienta correcta hasta la zona marcada y mantenela ahí");
             Color tc = Content.KindColor(s.kind);
             var p = Panel(new Vector3(-.42f, 1.86f, 2.75f), 2.2f, 1.62f, tc); float W = UI.Wd(p), H = UI.Ht(p);
             UI.T(p, "ETAPA 1 · RECUPERACIÓN FÍSICA", 44, 58, 17, Pal.Red, true);
@@ -367,40 +367,40 @@ namespace Piki
             float y = UI.Wrap(p, s.text, 44, 272, W - 88, 32, 23, Pal.Hex("#dbe6f2"));
             float x = 44; foreach (var sg in s.signals) x += UI.Chip(p, x, y - 4, sg, tc, 16, 34, 13) + 10;
             var box = UI.Rect(p, 0, 0, W, H, "feedback");
-            Action<string> mode = null; var btns = new Dictionary<Treat, PikiButton>();
-            UIImage barFill = null; UIText timeText = null;
+            Action<string> mode = null;
+            UIImage barFill = null; UIText timeText = null, instrText = null;
             mode = md =>
             {
                 foreach (Transform ch in box.transform) Destroy(ch.gameObject);
-                float by = H - 196, bh = 170; Color bc = md == "question" ? Pal.Teal : md == "wrong" ? Pal.Red : md == "correct" ? Pal.Green : Content.TColor(s.correct);
+                float by = H - 196, bh = 170; Color col = Content.TColor(s.correct);
+                Color bc = md == "question" ? Pal.Teal : md == "wrong" ? Pal.Red : md == "done" ? Pal.Green : col;
                 UI.Framed(box, 30, by, W - 60, bh, Color.Lerp(UI.PanelA, bc, .14f), Pal.A(bc, .6f), 22, 2.5f);
                 if (md == "question")
                 {
-                    UI.T(box, "¿Qué necesita esta zona?", W / 2, by + 78, 40, Color.white, true, UI.Al.C, W);
-                    UI.T(box, "Interpretá las señales y elegí una opción", W / 2, by + 122, 20, Pal.Muted, true, UI.Al.C, W);
+                    UI.T(box, "¿Qué necesita esta zona?", W / 2, by + 74, 40, Color.white, true, UI.Al.C, W);
+                    UI.T(box, "Agarrá una herramienta de abajo y pasala por la zona marcada en el cuerpo", W / 2, by + 118, 20, Pal.Muted, true, UI.Al.C, W);
                 }
                 else if (md == "wrong")
                 {
                     UI.Icon(box, Spr.Circle, 76, by + 50, 22, Pal.Red); UI.Icon(box, Spr.Cross, 76, by + 50, 11, Color.white);
                     UI.T(box, "No es la mejor opción para esta situación.", 112, by + 59, 26, Pal.Hex("#ffb3bb"), true);
                     float yy = UI.Wrap(box, Content.Hint(s.correct, s.wrongs[s.wrongs.Count - 1]), 60, by + 100, W - 120, 28, 20, Pal.Hex("#f3dde0"));
-                    UI.T(box, "Probá con otra opción.", 60, Mathf.Min(yy + 4, by + bh - 14), 19, Pal.Text, true);
+                    UI.T(box, "Probá con otra herramienta.", 60, Mathf.Min(yy + 4, by + bh - 14), 19, Pal.Text, true);
                 }
-                else if (md == "correct")
+                else if (md == "applying")
                 {
-                    UI.Icon(box, Spr.Circle, 76, by + 50, 22, Pal.Green); UI.Icon(box, Spr.Check, 76, by + 50, 12, Pal.Ink);
-                    UI.T(box, "Respuesta correcta · " + Content.TLabel(s.correct), 112, by + 59, 28, Pal.Hex("#b9f7dc"), true);
-                    UI.Wrap(box, Content.TExpl(s.correct), 60, by + 100, W - 120, 28, 20, Pal.Hex("#e0f5ec"));
+                    UI.Icon(box, Content.TIcon(s.correct), 76, by + 48, 22, col);
+                    UI.T(box, "Respuesta correcta · " + Content.TVerb(s.correct), 112, by + 57, 26, Pal.Hex("#b9f7dc"), true);
+                    timeText = UI.T(box, "00:00 / " + Content.TMins(s.correct) + ":00", W - 60, by + 57, 24, Pal.Text, true, UI.Al.R, 400);
+                    instrText = UI.T(box, "", 60, by + 98, 21, Color.white, true);
+                    UIImage track; barFill = UI.Bar(box, 60, by + 116, W - 120, 20, 0, col, out track);
+                    UI.T(box, Content.THow(s.correct), 60, by + 160, 18, Pal.Muted, true);
                 }
                 else
                 {
-                    bool done = md == "done"; Color col = Content.TColor(s.correct);
-                    UI.Icon(box, Content.TIcon(s.correct), 80, by + 52, 24, col);
-                    UI.T(box, done ? "Zona recuperada" : Content.TVerb(s.correct) + "…", 120, by + 62, 30, done ? Pal.Green : Color.white, true);
-                    timeText = UI.T(box, "00:00 / " + Content.TMins(s.correct) + ":00", W - 60, by + 62, 26, Pal.Text, true, UI.Al.R, 400);
-                    UIImage track; barFill = UI.Bar(box, 60, by + 86, W - 120, 22, done ? 1 : 0, done ? Pal.Green : col, out track);
-                    if (done) timeText.text = Content.TMins(s.correct) + ":00 / " + Content.TMins(s.correct) + ":00";
-                    UI.T(box, done ? (s.attempts == 1 ? "Acertaste a la primera · " : "Lo resolviste en " + s.attempts + " intentos · ") + Content.THow(s.correct) : Content.THow(s.correct), 60, by + 142, 19, Pal.Muted, true);
+                    UI.Icon(box, Spr.Circle, 76, by + 48, 22, Pal.Green); UI.Icon(box, Spr.Check, 76, by + 48, 12, Pal.Ink);
+                    UI.T(box, "Zona recuperada · " + (s.attempts == 1 ? "acertaste a la primera" : "lo resolviste en " + s.attempts + " intentos"), 112, by + 57, 25, Pal.Hex("#b9f7dc"), true);
+                    UI.Wrap(box, Content.TExpl(s.correct), 60, by + 98, W - 120, 27, 19, Pal.Hex("#e0f5ec"));
                 }
             };
             mode("question");
@@ -410,57 +410,76 @@ namespace Piki
             UI.T(tag, s.zone.name.ToUpper() + (s.side != null ? " · " + s.side.ToUpper() : ""), UI.Wd(tag) / 2, 37, 24, tc, true, UI.Al.C, UI.Wd(tag));
             UI.Appear(tag, .3f);
 
-            bool busy = false; var opts = new[] { Treat.Frio, Treat.Calor, Treat.Masaje };
+            // El cuerpo muestra la zona hacia el usuario y se queda quieto
+            body.FaceZone(s.pos);
+
+            // Herramientas: bolsa de hielo, compresa tibia y pelota de masaje
+            var toolsRoot = Build.Group("Herramientas", screen);
+            var tools = new List<PikiTool>(); var opts = new[] { Treat.Frio, Treat.Calor, Treat.Masaje };
             for (int k = 0; k < 3; k++)
             {
-                var opt = opts[k];
-                var c = UI.Canvas(screen, new Vector3(-1.13f + k * .71f, .79f, 2.7f), .64f, .44f, Vector3.zero, "Opción " + Content.TLabel(opt)); float cw = UI.Wd(c), chh = UI.Ht(c);
-                Color oc = Content.TColor(opt);
-                var border = UI.Round(c, 8, 8, cw - 16, chh - 16, Pal.A(oc, .85f), 28);
-                var fill = UI.Round(c, 11, 11, cw - 22, chh - 22, Color.Lerp(new Color(.04f, .09f, .16f, 1), oc, .22f), 25);
-                UI.Icon(c, Content.TIcon(opt), cw / 2, chh * .4f, chh * .2f, oc);
-                UI.T(c, Content.TLabel(opt), cw / 2, chh * .82f, 34, Color.white, true, UI.Al.C, cw);
-                var badge = UI.Rect(c, cw - 64, 20, 44, 44); badge.gameObject.SetActive(false);
-                var b = UI.AttachButton(c); btns[opt] = b;
-                b.onHover = h => { border.color = h ? Color.white : Pal.A(oc, .85f); fill.color = Color.Lerp(new Color(.04f, .09f, .16f, 1), oc, h ? .38f : .22f); };
-                b.onClick = () =>
+                var opt = opts[k]; Vector3 home = new Vector3(-1.13f + k * .71f, .9f, 2.6f); Color oc = Content.TColor(opt);
+                var ped = Build.MeshObj("Base", toolsRoot, Build.Floor(.42f, .42f), Mat.Unlit(Pal.A(oc, .7f), Spr.Ring.texture, 3000)); ped.transform.localPosition = home + new Vector3(0, -.14f, 0);
+                Build.Glow(toolsRoot, home + new Vector3(0, -.13f, 0), .5f, Pal.A(oc, .25f), false).transform.localEulerAngles = new Vector3(90, 0, 0);
+                var lab = UI.Canvas(toolsRoot, home + new Vector3(0, -.24f, -.02f), .6f, .14f, Vector3.zero, "Etiqueta " + Content.TLabel(opt));
+                UI.T(lab, Content.TLabel(opt), UI.Wd(lab) / 2, 34, 30, Color.white, true, UI.Al.C, UI.Wd(lab));
+                UI.T(lab, opt == Treat.Frio ? "bolsa de hielo" : opt == Treat.Calor ? "compresa tibia" : "pelota de masaje", UI.Wd(lab) / 2, 52, 15, oc, true, UI.Al.C, UI.Wd(lab));
+                UI.Appear(lab, .2f + k * .09f);
+                var tool = ToolModel.Make(opt, toolsRoot, home); tools.Add(tool);
+            }
+            PikiTool.Focus = body.MarkerT;
+            StartCoroutine(SituationLoop(s, i, screen, mode, () => barFill, () => timeText, () => instrText, toolsRoot, tools));
+        }
+
+        IEnumerator SituationLoop(Situation s, int i, Transform scr, Action<string> mode, Func<UIImage> bar, Func<UIText> time, Func<UIText> instr, Transform toolsRoot, List<PikiTool> tools)
+        {
+            float progress = 0, tick = 0, idleMsg = 0; bool decided = false; const float DUR = 5.5f; float BW = 880 - 120;
+            int mins = Content.TMins(s.correct);
+            string keep = s.correct == Treat.Frio ? "Mantené la bolsa de hielo apoyada sobre la zona" : s.correct == Treat.Calor ? "Mantené la compresa tibia apoyada sobre la zona" : "Mové la pelota en círculos suaves sobre la zona";
+            while (!s.done)
+            {
+                if (scr == null || body == null) yield break;
+                var held = rig.Held;
+                bool near = held != null && Vector3.Distance(held.transform.position, body.MarkerT.position) < .24f;
+                body.Highlight(held != null && Vector3.Distance(held.transform.position, body.MarkerT.position) < .45f);
+                if (near && !decided)
                 {
-                    if (busy || s.done) return; s.attempts++;
-                    if (opt == s.correct)
+                    s.attempts++;
+                    if (held.kind == s.correct)
                     {
-                        busy = true; s.firstTry = s.attempts == 1; au.Correct();
-                        foreach (var o in opts) if (o != opt) btns[o].SetDisabled(true, .3f);
-                        b.SetDisabled(true, 1); border.color = Pal.Green; badge.gameObject.SetActive(true);
-                        UI.Icon(badge, Spr.Circle, 22, 22, 22, Pal.Green); UI.Icon(badge, Spr.Check, 22, 22, 12, Pal.Ink);
-                        mode("correct");
-                        StartCoroutine(ApplyTreatment(s, i, mode, () => barFill, () => timeText, btns));
+                        decided = true; s.firstTry = s.attempts == 1; au.Correct();
+                        foreach (var t in tools) if (t != held) t.gameObject.SetActive(false);
+                        body.StartFX(s.correct); body.SetFX(false); mode("applying");
                     }
                     else
                     {
-                        au.Wrong(); s.wrongs.Add(opt); b.SetDisabled(true, .55f); b.Shake(); border.color = Pal.Red; badge.gameObject.SetActive(true);
-                        UI.Icon(badge, Spr.Circle, 22, 22, 22, Pal.Red); UI.Icon(badge, Spr.Cross, 22, 22, 11, Color.white);
-                        mode("wrong");
+                        au.Wrong(); s.wrongs.Add(held.kind); rig.ForceRelease(); held.SetDisabled(true); mode("wrong");
                     }
-                };
-                UI.Appear(c, .2f + k * .09f);
+                }
+                if (decided)
+                {
+                    float rate = 0;
+                    if (near && held.kind == s.correct) rate = s.correct == Treat.Masaje ? Mathf.Clamp01(held.Speed / .5f) : 1f;
+                    body.SetFX(rate > .15f);
+                    progress = Mathf.Clamp01(progress + Time.deltaTime * rate / DUR);
+                    tick -= Time.deltaTime; if (rate > .15f && tick <= 0) { tick = .45f; au.ApplyTick(progress); rig.Haptic(); }
+                    idleMsg -= Time.deltaTime;
+                    if (instr() != null && idleMsg <= 0)
+                    {
+                        idleMsg = .2f;
+                        instr().text = rate > .15f ? keep : (held == null ? "Agarrá de nuevo la herramienta y llevala a la zona marcada" : s.correct == Treat.Masaje && near ? "Mové la pelota en círculos para hacer el masaje" : "Acercá la herramienta a la zona marcada");
+                        instr().color = rate > .15f ? Color.white : Pal.Yellow;
+                    }
+                    if (bar() != null) UI.SetBar(bar(), BW, 20, progress);
+                    if (time() != null) { float m = mins * progress; int mm = Mathf.FloorToInt(m), ss = Mathf.FloorToInt((m - mm) * 60); time().text = mm.ToString("00") + ":" + ss.ToString("00") + " / " + mins + ":00"; }
+                    body.SetColor(Color.Lerp(Pal.Red, Pal.Green, progress));
+                    if (progress >= 1) s.done = true;
+                }
+                yield return null;
             }
-        }
-        IEnumerator ApplyTreatment(Situation s, int i, Action<string> mode, Func<UIImage> bar, Func<UIText> time, Dictionary<Treat, PikiButton> btns)
-        {
-            yield return new WaitForSeconds(2.3f);
-            body.FaceZone(s.pos); body.StartFX(s.correct);
-            mode("applying"); float W = 880 - 120;
-            int mins = Content.TMins(s.correct);
-            yield return Tw.Co(6.5f, k =>
-            {
-                UI.SetBar(bar(), W, 22, k);
-                float m = mins * k; int mm = Mathf.FloorToInt(m), ss = Mathf.FloorToInt((m - mm) * 60);
-                time().text = mm.ToString("00") + ":" + ss.ToString("00") + " / " + mins + ":00";
-                body.SetColor(Color.Lerp(Pal.Red, Pal.Green, k));
-            }, Ease.Lin);
-            s.done = true; body.StopFX(); body.SetColor(Pal.Green); au.Correct();
+            rig.ForceRelease(); body.SetFX(false); body.StopFX(); body.SetColor(Pal.Green); body.Highlight(false); au.Correct();
             mode("done");
-            foreach (var b in btns.Values) UI.Vanish(b, .35f);
+            if (toolsRoot != null) Destroy(toolsRoot.gameObject);
             bool last = i == sits.Count - 1;
             var nb = Btn(last ? "VER RESUMEN  →" : "SIGUIENTE SITUACIÓN  →", new Vector3(-.42f, .84f, 2.7f), 1.15f, .23f, UI.Style.Primary, () => { body.spin = true; if (last) ShowPhysSummary(); else ShowSituation(i + 1); });
             UI.Appear(nb, .3f);

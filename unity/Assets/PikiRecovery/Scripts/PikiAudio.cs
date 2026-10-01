@@ -56,6 +56,13 @@ namespace Piki
         public void Beep(bool hi) { sfx.PlayOneShot(hi ? cBeepHi : cBeep); }
         public void Whistle(bool longOne = false) { sfx.PlayOneShot(longOne ? cWhistleLong : cWhistle, .7f); }
         public void Whoosh() { sfx.PlayOneShot(cWhoosh); }
+        // Notas suaves mientras se aplica el tratamiento (suben con el progreso)
+        AudioClip[] cTicks;
+        public void ApplyTick(float k)
+        {
+            if (cTicks == null) { float[] f = { 392f, 440f, 523.25f, 587.33f, 659.25f, 783.99f, 880f, 1046.5f }; cTicks = new AudioClip[f.Length]; for (int i = 0; i < f.Length; i++) cTicks[i] = Tone(.9f, f[i], f[i], Wave.Sine, .12f, 0, .04f); }
+            sfx.PlayOneShot(cTicks[Mathf.Clamp(Mathf.FloorToInt(k * cTicks.Length), 0, cTicks.Length - 1)], .7f);
+        }
         public void Final() { sfx.PlayOneShot(cFinal, .9f); }
         public void Breath(bool inhale) { sfx.PlayOneShot(inhale ? cInhale : cExhale, .9f); sfx.PlayOneShot(Tone(1.6f, inhale ? 392 : 329.63f, inhale ? 392 : 329.63f, Wave.Sine, .12f, 0, .3f), .6f); }
 

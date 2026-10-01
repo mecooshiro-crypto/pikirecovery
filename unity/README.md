@@ -36,12 +36,12 @@ desde el menú, se reemplazan y se pierden los cambios que hayas hecho a mano.
 
 ## Cómo se juega
 
-| Dispositivo | Mirar en 360° | Elegir | Respiración (mantener al inhalar) |
-|---|---|---|---|
-| Mac / PC (editor o build) | Arrastrar con el mouse o flechas | Clic | Clic o **ESPACIO** |
-| Celular (Android / iOS) | Mover el teléfono (giroscopio) o arrastrar | Tocar | Dedo apoyado |
-| VR con controles (Meta Quest, OpenXR) | Girar la cabeza | Láser + **gatillo** | Gatillo |
-| VR solo mirada | Girar la cabeza | Mirar fijo 1,4 s el botón | Modo guiado |
+| Dispositivo | Mirar en 360° | Elegir | Aplicar frío / calor / masaje | Respiración (mantener al inhalar) |
+|---|---|---|---|---|
+| Mac / PC (editor o build) | Arrastrar con el mouse o flechas | Clic | Mantener apretado sobre la herramienta y arrastrarla hasta la zona | Clic o **ESPACIO** |
+| Celular (Android / iOS) | Mover el teléfono (giroscopio) o arrastrar | Tocar | Apoyar el dedo en la herramienta y arrastrarla | Dedo apoyado |
+| VR con controles (Meta Quest, OpenXR) | Girar la cabeza | Láser + **gatillo** | Apuntar, mantener el gatillo y llevarla | Gatillo |
+| VR solo mirada | Girar la cabeza | Mirar fijo 1,4 s el botón | Mirar la herramienta para agarrarla y después mirar la zona | Modo guiado |
 
 Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 
@@ -51,7 +51,7 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 2. **Aparición en la cancha**: estadio al atardecer, tribunas llenas, silbato final, marcador *FINAL 2–1*,
    jugadores que se van al túnel y estadísticas del partido.
 3. **Etapa 1, recuperación física**: holograma del cuerpo y 3 situaciones al azar (tipo, zona, lado,
-   intensidad y señales). Elegís **Frío, Calor o Masajes**:
+   intensidad y señales). Agarrás la herramienta que corresponde (**bolsa de hielo, compresa tibia o pelota de masaje**) y la pasás vos mismo por la zona marcada. Para el masaje hay que moverla en círculos:
    - Si acertás, ves "Respuesta correcta" y se aplica el tratamiento, con partículas y reloj.
    - Si no, ves "No es la mejor opción…" con una pista, y volvés a intentar.
 4. **Etapa 2, recuperación nutricional**: el vestuario, con un minijuego de 60 s en el que los alimentos 3D

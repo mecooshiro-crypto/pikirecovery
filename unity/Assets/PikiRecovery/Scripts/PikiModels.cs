@@ -8,6 +8,53 @@ using UnityEngine;
 namespace Piki
 {
 
+    /* ------------------------------ Herramientas de recuperación ------------------------------ */
+    public static class ToolModel
+    {
+        public static PikiTool Make(Treat kind, Transform parent, Vector3 home)
+        {
+            var root = Build.Group("Herramienta " + Content.TLabel(kind), parent, home);
+            var model = Build.Group("modelo", root);
+            Vector3 z = Vector3.zero;
+            if (kind == Treat.Frio)
+            {
+                // Bolsa de hielo: bolsa celeste con cubitos y tapa blanca
+                Build.Prim(PrimitiveType.Sphere, model, z, new Vector3(.24f, .1f, .17f), Mat.Lit(Pal.Hex("#bfe9ff"), .9f));
+                var ice = Mat.Lit(new Color(.92f, .98f, 1f), .95f);
+                for (int i = 0; i < 4; i++) Build.Prim(PrimitiveType.Cube, model, new Vector3(-.06f + i * .04f, .035f, (i % 2) * .03f - .015f), Vector3.one * .035f, ice, new Vector3(i * 20, i * 35, 10));
+                Build.Prim(PrimitiveType.Cylinder, model, new Vector3(.13f, 0, 0), new Vector3(.05f, .02f, .05f), Mat.Lit(Color.white, .5f), new Vector3(0, 0, 90));
+            }
+            else if (kind == Treat.Calor)
+            {
+                // Compresa tibia: almohadilla naranja con franjas
+                Build.Prim(PrimitiveType.Cube, model, z, new Vector3(.24f, .05f, .16f), Mat.Lit(Pal.Hex("#ff9a52"), .4f));
+                var stripe = Mat.Lit(Pal.Hex("#e0482f"), .4f);
+                for (int i = -1; i <= 1; i++) Build.Prim(PrimitiveType.Cube, model, new Vector3(i * .06f, .027f, 0), new Vector3(.02f, .005f, .15f), stripe);
+                Build.Glow(model, new Vector3(0, .02f, 0), .45f, Pal.A(Pal.Orange, .5f));
+            }
+            else
+            {
+                // Pelota de masaje con mango
+                Build.Prim(PrimitiveType.Sphere, model, new Vector3(0, .02f, 0), Vector3.one * .13f, Mat.Lit(Pal.Green, .6f));
+                var dot = Mat.Lit(Pal.Hex("#b9f7dc"), .6f);
+                for (int i = 0; i < 10; i++) { float a = i * 2.4f, b = Mathf.Acos(1 - 2 * (i + .5f) / 10); Build.Prim(PrimitiveType.Sphere, model, new Vector3(Mathf.Sin(b) * Mathf.Cos(a), Mathf.Cos(b), Mathf.Sin(b) * Mathf.Sin(a)) * .065f + new Vector3(0, .02f, 0), Vector3.one * .025f, dot); }
+                Build.Prim(PrimitiveType.Cylinder, model, new Vector3(0, -.09f, 0), new Vector3(.04f, .06f, .04f), Mat.Lit(Pal.Hex("#2b3540"), .5f));
+            }
+            var col = root.gameObject.AddComponent<SphereCollider>(); col.radius = .17f;
+            var tool = root.gameObject.AddComponent<PikiTool>(); tool.kind = kind; tool.home = home;
+            // Brillo al pasar el puntero; en modo solo-mirada, mirarla la agarra
+            var ring = Build.Glow(root, z, .55f, Pal.A(Content.TColor(kind), .55f)); ring.SetActive(false);
+            var btn = root.gameObject.AddComponent<PikiButton>(); btn.hoverScale = 1.12f;
+            btn.onHover = h => { if (ring != null) ring.SetActive(h); };
+            btn.onClick = () => { var rig = PikiRig.I; if (rig != null && rig.GazeMode) rig.StickyGrab(tool); };
+            // Cruz roja cuando ya se probó y no era la correcta
+            var badge = UI.Canvas(root, new Vector3(0, .17f, 0), .1f, .1f, Vector3.zero, "Descartada");
+            UI.Icon(badge, Spr.Circle, 20, 20, 20, Pal.Red); UI.Icon(badge, Spr.Cross, 20, 20, 10, Color.white);
+            badge.gameObject.AddComponent<Billboard>(); tool.badge = badge.gameObject; badge.gameObject.SetActive(false);
+            return tool;
+        }
+    }
+
     /* ------------------------------ Alimentos 3D ------------------------------ */
     public static class FoodModel
     {
