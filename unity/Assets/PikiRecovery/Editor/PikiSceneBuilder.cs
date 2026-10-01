@@ -25,14 +25,18 @@ namespace Piki.EditorTools
         const string ScenesDir = Root + "/Scenes";
         const string GenDir = Root + "/Generated";
 
-        struct Def { public string name; public PikiGame.StartAt start; public Def(string n, PikiGame.StartAt s) { name = n; start = s; } }
+        struct Def
+        {
+            public string name, audio; public PikiGame.StartAt start; public float volume;
+            public Def(string n, PikiGame.StartAt s, string audio = null, float volume = .5f) { name = n; start = s; this.audio = audio; this.volume = volume; }
+        }
         static readonly Def[] Defs =
         {
             new Def(Scenes.Inicio, PikiGame.StartAt.Inicio),
-            new Def(Scenes.Cancha, PikiGame.StartAt.Cancha),
-            new Def(Scenes.Vestuario, PikiGame.StartAt.Nutricion),
-            new Def(Scenes.Calma, PikiGame.StartAt.Calma),
-            new Def(Scenes.Partido, PikiGame.StartAt.Partido),
+            new Def(Scenes.Cancha, PikiGame.StartAt.Cancha, "Publico_Estadio.mp3", .55f),
+            new Def(Scenes.Vestuario, PikiGame.StartAt.Nutricion, "Musica_Vestuario.mp3", .5f),
+            new Def(Scenes.Calma, PikiGame.StartAt.Calma, "Musica_Calma.mp3", .12f),   // bien bajo, de fondo
+            new Def(Scenes.Partido, PikiGame.StartAt.Partido, "Publico_Estadio.mp3", .55f),
         };
 
         static string curDir; static int counter; static readonly List<Object> created = new List<Object>();
@@ -113,9 +117,18 @@ namespace Piki.EditorTools
                     PikiSession.match = null;
                     var go = new GameObject("Piki Recovery (juego)");
                     var game = go.AddComponent<PikiGame>(); game.startAt = d.start;
-                    game.crowdClip = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/Publico_Estadio.mp3");
-                    game.musicClip = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/Musica_Vestuario.mp3");
-                    game.calmClip = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/Musica_Calma.mp3");
+                    // Audio de fondo: un objeto en la escena con su AudioSource (loop constante, suena al iniciar)
+                    if (d.audio != null)
+                    {
+                        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/" + d.audio);
+                        if (clip != null)
+                        {
+                            var ago = new GameObject("Audio de la escena (" + Path.GetFileNameWithoutExtension(d.audio) + ")");
+                            var src = ago.AddComponent<AudioSource>();
+                            src.clip = clip; src.loop = true; src.playOnAwake = true; src.volume = d.volume; src.spatialBlend = 0; src.priority = 64;
+                            game.sceneAudio = src;
+                        }
+                    }
                     game.Bake(false, true);
 
                     foreach (var o in created) if (o != null) EditorUtility.SetDirty(o);

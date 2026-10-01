@@ -107,7 +107,7 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 | `PikiModels.cs` | Holograma corporal, efectos de frío, calor y masaje, y los 22 alimentos 3D |
 | `PikiContent.cs` | Zonas, situaciones al azar, tratamientos, pistas y alimentos con sus valores |
 | `PikiUI.cs` | Paneles, textos, botones e íconos en 3D (sin paquetes extra: SpriteRenderer + TextMesh) |
-| `Audio/` | Público del estadio (01 y 04), música del vestuario (02) y música de la calma (03). Se pueden cambiar desde el Inspector de *Piki Recovery (juego)* |
+| `Audio/` | Audios de fondo. Cada escena tiene un objeto **Audio de la escena** con un *AudioSource* (Loop + Play On Awake): público en 01 y 04, música en 02 y música de calma bien baja (volumen 0,12) en 03. Se cambian desde el Inspector |
 | `PikiAudio.cs` | Sonido sintetizado: público, silbato, música por nivel, ambiente de calma y respiración |
 | `PikiCore.cs` | Materiales, texturas, íconos y mallas procedurales, más las animaciones |
 

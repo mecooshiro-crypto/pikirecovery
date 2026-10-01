@@ -37,10 +37,8 @@ namespace Piki
     {
         public enum StartAt { Inicio, Deporte, Cancha, Fisica, Situacion, Nutricion, Minijuego, Calma, Respiracion, Final, Partido }
         [Tooltip("Etapa con la que arranca esta escena")] public StartAt startAt = StartAt.Inicio;
-        [Header("Audio (opcional)")]
-        [Tooltip("Público del estadio (escenas 01 y 04)")] public AudioClip crowdClip;
-        [Tooltip("Música del vestuario y del minijuego (escena 02)")] public AudioClip musicClip;
-        [Tooltip("Música de la vuelta a la calma (escena 03)")] public AudioClip calmClip;
+        [Tooltip("Audio de fondo de la escena (objeto 'Audio de la escena'). Si hay uno, el juego no genera público ni música por código.")]
+        public AudioSource sceneAudio;
 
         // Referencias guardadas en la escena por el constructor (menú Piki Recovery)
         [SerializeField] PikiRig rig; [SerializeField] PikiEnv env;
@@ -102,7 +100,7 @@ namespace Piki
                 Bake(true, false);
             }
             au = gameObject.AddComponent<PikiAudio>();
-            au.crowdClip = crowdClip; au.musicClip = musicClip; au.calmClip = calmClip;
+            au.useSceneAudio = sceneAudio != null;
             rig.onMute = () => au.SetMuted(!au.Muted);
             rig.onRecenter = Recenter;
             fadeM = fadeR.sharedMaterial != null ? new Material(fadeR.sharedMaterial) : Mat.Unlit(Color.black, null, 4000); fadeR.sharedMaterial = fadeM;
@@ -119,7 +117,6 @@ namespace Piki
             var st = startAt;
             env.Set(EnvFor(st), ModeFor(st)); NewStage();
             if (st == StartAt.Cancha) au.CrowdStart(.42f);
-            if (st == StartAt.Nutricion && musicClip != null) au.BeatStart(1, .22f); // música suave en el vestuario
             if (st == StartAt.Fisica || st == StartAt.Situacion) au.CrowdStart(.22f);
             if (st == StartAt.Calma || st == StartAt.Respiracion || st == StartAt.Final) au.PadStart(.55f);
             // Cartel de transición que viene de la escena anterior
