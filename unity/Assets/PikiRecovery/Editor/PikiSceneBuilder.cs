@@ -38,6 +38,8 @@ namespace Piki.EditorTools
         // La primera vez que se importan los scripts, ofrece construir las escenas
         static PikiSceneBuilder()
         {
+            EditorApplication.playModeStateChanged -= CheckBeforePlay;
+            EditorApplication.playModeStateChanged += CheckBeforePlay;
             EditorApplication.delayCall += () =>
             {
                 if (EditorApplication.isPlayingOrWillChangePlaymode) return;
@@ -49,6 +51,23 @@ namespace Piki.EditorTools
                     "Construir", "Más tarde"))
                     BuildAll();
             };
+        }
+
+        // Si se borraron los assets generados (por ejemplo al reemplazar la carpeta), las escenas
+        // quedan con materiales faltantes (todo rosa). Antes de dar Play se ofrece reconstruirlas.
+        static void CheckBeforePlay(PlayModeStateChange st)
+        {
+            if (st != PlayModeStateChange.ExitingEditMode) return;
+            var scene = EditorSceneManager.GetActiveScene();
+            bool ours = scene.path.StartsWith(ScenesDir) || Object.FindFirstObjectByType<PikiGame>() != null;
+            if (!ours) return;
+            bool broken = !AssetDatabase.IsValidFolder(GenDir) || !File.Exists(ScenesDir + "/" + Scenes.Inicio + ".unity") || string.IsNullOrEmpty(scene.path);
+            if (!broken) return;
+            EditorApplication.isPlaying = false;
+            if (EditorUtility.DisplayDialog("Piki Recovery",
+                "Faltan los materiales y texturas de las escenas (por eso se vería todo rosa). Hay que construir las escenas de nuevo.\n\n¿Construirlas ahora?",
+                "Construir", "Cancelar"))
+                EditorApplication.delayCall += BuildAll;
         }
 
         [MenuItem("Piki Recovery/Construir escenas", false, 1)]

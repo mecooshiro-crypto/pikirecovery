@@ -70,10 +70,10 @@ namespace Piki
         {
             if (!Application.isPlaying || skyR == null) return;
             skyTex = new Texture2D(2, 256, TextureFormat.RGBA32, false); skyTex.wrapMode = TextureWrapMode.Clamp;
-            var sm = new Material(skyR.sharedMaterial); sm.mainTexture = skyTex; skyR.sharedMaterial = sm;
+            var sm = skyR.sharedMaterial != null ? new Material(skyR.sharedMaterial) : Mat.Unlit(Color.white, null, 1000); sm.mainTexture = skyTex; skyR.sharedMaterial = sm;
             var list = new List<Renderer>(floodGlows); list.AddRange(floodPanels); list.Add(roofLight); list.Add(standR); list.Add(starsR);
             if (sun != null) list.Add(sun.GetComponent<Renderer>());
-            foreach (var r in list) if (r != null) r.sharedMaterial = new Material(r.sharedMaterial);
+            foreach (var r in list) if (r != null && r.sharedMaterial != null) r.sharedMaterial = new Material(r.sharedMaterial);
         }
 
         /* ------------------------------ Cielo y luces ------------------------------ */

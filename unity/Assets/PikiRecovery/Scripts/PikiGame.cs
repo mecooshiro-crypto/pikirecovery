@@ -99,7 +99,7 @@ namespace Piki
             au = gameObject.AddComponent<PikiAudio>();
             rig.onMute = () => au.SetMuted(!au.Muted);
             rig.onRecenter = Recenter;
-            fadeM = new Material(fadeR.sharedMaterial); fadeR.sharedMaterial = fadeM;
+            fadeM = fadeR.sharedMaterial != null ? new Material(fadeR.sharedMaterial) : Mat.Unlit(Color.black, null, 4000); fadeR.sharedMaterial = fadeM;
             fadeM.color = Color.black; fadeR.gameObject.SetActive(true);
         }
         void Start()

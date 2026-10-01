@@ -44,7 +44,7 @@ namespace Piki
         public static Material TextMat(int queue)
         {
             Material m; if (textMats.TryGetValue(queue, out m) && m != null) return m;
-            m = new Material(Font.material); if (queue > 0) m.renderQueue = queue;
+            m = Font.material != null ? new Material(Font.material) : Mat.Unlit(Color.white, null, 3000); if (queue > 0) m.renderQueue = queue;
             textMats[queue] = Persist.Keep(m, "Texto"); return m;
         }
 
