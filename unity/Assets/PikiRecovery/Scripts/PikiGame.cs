@@ -19,10 +19,10 @@ namespace Piki
 {
     public static class Scenes
     {
-        public const string Inicio = "00_Inicio", Cancha = "01_Cancha", Vestuario = "02_Vestuario", Calma = "03_Calma";
+        public const string Inicio = "00_Inicio", Cancha = "01_Cancha", Vestuario = "02_Vestuario", Calma = "03_Calma", Partido = "04_Partido";
     }
     public class Nutri { public float E = 30, H = 22, R = 18, t, balance; public int good, bad, missed, over, score, stars, level = 1; public bool running; }
-    public class CalmRes { public int cycles = 6, sync, hr = 64; public bool guided = true; }
+    public class CalmRes { public int cycles = 6, sync, hr = 64; public bool guided = true, failed; }
     public class CardInfo { public string kicker, title, sub; public Color color = Pal.Teal; public float hold = 1.5f, fadeT = .9f; }
 
     // Datos que viajan de una escena a la otra durante una partida
@@ -35,7 +35,7 @@ namespace Piki
 
     public class PikiGame : MonoBehaviour
     {
-        public enum StartAt { Inicio, Deporte, Cancha, Fisica, Situacion, Nutricion, Minijuego, Calma, Respiracion, Final }
+        public enum StartAt { Inicio, Deporte, Cancha, Fisica, Situacion, Nutricion, Minijuego, Calma, Respiracion, Final, Partido }
         [Tooltip("Etapa con la que arranca esta escena")] public StartAt startAt = StartAt.Inicio;
 
         // Referencias guardadas en la escena por el constructor (menú Piki Recovery)
@@ -76,6 +76,7 @@ namespace Piki
                 NewStage();
                 if (need == EnvName.Hub) ShowWelcome();
                 else if (need == EnvName.Locker) ShowNutriIntro();
+                else if (startAt == StartAt.Partido) { EnsureSampleResults(); ShowNextMatchPanel(Performance(), false); }
                 else if (ModeFor(startAt) == StadiumMode.Match) ShowArrival();
                 else ShowCalmIntro();
                 previewRoot = stage.gameObject; previewRoot.name = "UI (vista previa · se regenera al dar Play)";
@@ -141,6 +142,7 @@ namespace Piki
                     if (nutri == null) nutri = new Nutri { score = 82, stars = 2, good = 19 };
                     if (calm == null) calm = new CalmRes { guided = false, sync = 86 };
                     ShowFinal(); break;
+                case StartAt.Partido: au.CrowdStart(.5f); EnsureSampleResults(); StartCoroutine(NextMatch()); break;
                 default: ShowWelcome(); break;
             }
         }
@@ -804,7 +806,7 @@ namespace Piki
             UI.Icon(info, Spr.Heart, IW - 190, IH / 2, 16, Pal.Red); var tHr = UI.T(info, "104 lpm", IW - 162, IH / 2 + 9, 25, Color.white, true);
             UI.Appear(track); UI.Appear(lab, .1f); UI.Appear(info, .2f);
 
-            float yUser = -YR, T = -3f, hr = 104, shake = 0, infoT = 0; int samples = 0, onPath = 0; string phase = "";
+            float yUser = -YR, T = -3f, hr = 104, shake = 0, infoT = 0, agit = 0; int samples = 0, onPath = 0; string phase = ""; bool failed = false;
             Func<float, float> Y = tt => -YR + BreathCurve(tt) * 2 * YR;
             Action draw = () =>
             {
@@ -844,6 +846,9 @@ namespace Piki
                 shake = Mathf.Lerp(shake, want, 1 - Mathf.Exp(-Time.deltaTime * (want > shake ? 6 : 2.5f)));
                 rig.Shake = shake;
                 meMat.color = Color.Lerp(Color.white, Pal.Orange, shake);
+                // Agitación acumulada: si llega al 100 % la misión falla
+                agit = Mathf.Clamp01(agit + Time.deltaTime * (shake > .4f ? shake * .12f : -.04f));
+                if (agit >= 1) { failed = true; break; }
                 hr = Mathf.Lerp(104, 64, Ease.Out(t / TOTAL)) + shake * 18 + Mathf.Sin(Time.time * 1.3f) * 1.2f;
                 infoT -= Time.deltaTime;
                 if (infoT <= 0)
@@ -854,7 +859,7 @@ namespace Piki
                     tSec.color = shake > .35f ? Pal.Orange : Pal.Muted;
                     for (int i = 0; i < CYCLES; i++) cdots[i].color = i < cyc ? Pal.Purple : i == cyc ? Pal.A(Pal.Purple, .45f) : new Color(1, 1, 1, .15f);
                     tCycle.text = "Ciclo " + (cyc + 1) + " de " + CYCLES;
-                    tSync.text = "En el camino " + Mathf.RoundToInt(onPath * 100f / Mathf.Max(1, samples)) + "%";
+                    tSync.text = "Agitación " + Mathf.RoundToInt(agit * 100) + "%"; tSync.color = Color.Lerp(Pal.Teal, Pal.Red, agit);
                     tHr.text = Mathf.RoundToInt(hr) + " lpm";
                 }
                 env.ApplyLight(LightP.Lerp(PikiEnv.LCalm, PikiEnv.LCalmDeep, t / TOTAL), false);
@@ -862,10 +867,27 @@ namespace Piki
                 yield return null;
             }
             rig.Shake = 0;
-            calm = new CalmRes { cycles = CYCLES, guided = false, sync = Mathf.RoundToInt(onPath * 100f / Mathf.Max(1, samples)), hr = Mathf.RoundToInt(hr) };
-            for (int i = 0; i < CYCLES; i++) cdots[i].color = Pal.Purple;
-            tSync.text = "En el camino " + calm.sync + "%";
-            tWord.text = "MUY BIEN"; tWord.color = Color.white; tSec.text = "Tu respiración y tu pulso volvieron a la calma"; tSec.color = Pal.Muted;
+            if (failed)
+            {
+                // ---- Misión fallida ----
+                au.Wrong(); tWord.text = "MISIÓN FALLIDA"; tWord.color = Pal.Red; tSec.text = "Te agitaste demasiado: tu cuerpo no logró volver a la calma"; tSec.color = Pal.Hex("#ffb3bb");
+                tSync.text = "Agitación 100%"; tSync.color = Pal.Red;
+                bool decided = false, retry = false;
+                var bR = Btn("REINTENTAR", new Vector3(-.62f, .42f, 2.55f), 1.05f, .22f, UI.Style.Primary, () => { decided = true; retry = true; });
+                var bC = Btn("CONTINUAR IGUAL", new Vector3(.62f, .42f, 2.55f), 1.05f, .22f, UI.Style.Secondary, () => { decided = true; });
+                UI.Appear(bR, .3f); UI.Appear(bC, .4f);
+                while (!decided) { if (scr == null) yield break; yield return null; }
+                if (retry) { StartCoroutine(Breathing()); yield break; }
+                calm = new CalmRes { cycles = CYCLES, guided = false, failed = true, sync = Mathf.RoundToInt(onPath * 100f / Mathf.Max(1, samples)), hr = Mathf.RoundToInt(hr) };
+                UI.Vanish(bR, .3f); UI.Vanish(bC, .3f);
+            }
+            else
+            {
+                calm = new CalmRes { cycles = CYCLES, guided = false, sync = Mathf.RoundToInt(onPath * 100f / Mathf.Max(1, samples)), hr = Mathf.RoundToInt(hr) };
+                for (int i = 0; i < CYCLES; i++) cdots[i].color = Pal.Purple;
+                tSync.text = "En el camino " + calm.sync + "%"; tSync.color = Pal.Teal;
+                tWord.text = "TERMINADO"; tWord.color = Color.white; tSec.text = "Tu respiración y tu pulso volvieron a la calma"; tSec.color = Pal.Muted;
+            }
             yield return new WaitForSeconds(1.6f);
             UI.Vanish(track, .8f); UI.Vanish(lab, .8f); UI.Vanish(info, .8f);
             yield return new WaitForSeconds(1f);
@@ -896,21 +918,21 @@ namespace Piki
             var p = Panel(new Vector3(0, 1.9f, 2.85f), 2.7f, 1.78f, Pal.Green); float W = UI.Wd(p), H = UI.Ht(p);
             UI.T(p, "PIKI RECOVERY · FÚTBOL", 56, 64, 19, Pal.Green, true); UI.Stepper(p, W - 420, 60, 380, 3, Pal.Green);
             UI.Icon(p, Spr.Circle, 100, 158, 42, Pal.Green); UI.Icon(p, Spr.Check, 100, 158, 24, Pal.Ink);
-            UI.T(p, "RECUPERACIÓN COMPLETADA", 164, 180, 56, Color.white, true);
+            UI.T(p, K.failed ? "RECUPERACIÓN INCOMPLETA" : "RECUPERACIÓN COMPLETADA", 164, 180, 56, Color.white, true);
             UI.T(p, "Terminaste el trabajo invisible. Tu cuerpo está listo para volver a entrenar.", 58, 244, 23, Pal.Teal, true);
             for (int i = 0; i < 3; i++)
             {
                 float y = 276 + i * 100; var r = rows[i];
                 UI.Framed(p, 56, y, W - 112, 86, new Color(.08f, .14f, .22f, 1), Pal.A(r.c, .4f), 18, 2);
-                UI.Icon(p, Spr.Glow, 100, y + 43, 30, Pal.A(Pal.Ok, .7f)); UI.Icon(p, Spr.Circle, 100, y + 43, 17, Pal.Ok);
+                bool fail = i == 2 && K.failed; Color st = fail ? Pal.Red : Pal.Ok;
+                UI.Icon(p, Spr.Glow, 100, y + 43, 30, Pal.A(st, .7f)); UI.Icon(p, Spr.Circle, 100, y + 43, 17, st);
                 UI.T(p, r.n, 136, y + 38, 28, Color.white, true);
                 var dt = UI.T(p, r.d, 136, y + 68, 18, Pal.Muted, true, UI.Al.L, W - 460); dt.FitWidth(W - 460);
-                UI.T(p, "Completada", W - 84, y + 52, 26, Pal.Ok, true, UI.Al.R, 300);
+                UI.T(p, fail ? "Misión fallida" : "Completada", W - 84, y + 52, 26, st, true, UI.Al.R, 300);
             }
             UI.T(p, "“Nadie lo ve. Pero también es entrenamiento.”", W / 2, H - 42, 27, Pal.Orange, false, UI.Al.C, W, true);
-            var b1 = Btn("JUGAR DE NUEVO", new Vector3(-.6f, .88f, 2.8f), 1.05f, .22f, UI.Style.Primary, () => StartCoroutine(StartMatch()));
-            var b2 = Btn("VOLVER AL INICIO", new Vector3(.6f, .88f, 2.8f), 1.05f, .22f, UI.Style.Secondary, () => StartCoroutine(GoHome()));
-            UI.Appear(p, 0, .9f); UI.Appear(b1, .5f); UI.Appear(b2, .6f);
+            var b1 = Btn("VER TU PRÓXIMO PARTIDO  →", new Vector3(0, .88f, 2.8f), 1.5f, .24f, UI.Style.Primary, () => StartCoroutine(GoNextMatch()));
+            UI.Appear(p, 0, .9f); UI.Appear(b1, .5f);
             // Partículas doradas suaves
             var ps = Build.Particles(scr, new Vector3(0, 0, 0), new Color(1, .89f, .64f, .8f), .06f, 300);
             var main = ps.main; main.startLifetime = 14; main.startSpeed = new ParticleSystem.MinMaxCurve(.05f, .2f); main.startSize = new ParticleSystem.MinMaxCurve(.03f, .08f);
@@ -918,6 +940,128 @@ namespace Piki
             var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(16, .5f, 12); sh.position = new Vector3(0, 0, 4); sh.rotation = new Vector3(-90, 0, 0);
             ps.Play(); ps.Emit(120);
         }
+        /* ===================================================================
+           7. EL PRÓXIMO PARTIDO · rendimiento según tu recuperación
+           =================================================================== */
+        void EnsureSampleResults()
+        {
+            if (sits == null) { sits = Content.Generate(match); foreach (var x in sits) { x.attempts = 1; x.firstTry = true; } sits[2].attempts = 2; sits[2].firstTry = false; firstTry = 2; }
+            if (nutri == null) nutri = new Nutri { score = 78, stars = 2, good = 18 };
+            if (calm == null) calm = new CalmRes { guided = false, sync = 80 };
+        }
+        // Puntaje de cada etapa (0-100) y total ponderado
+        float PhysScore() { if (sits == null || sits.Count == 0) return 50; float t = 0; foreach (var x in sits) t += x.attempts <= 1 ? 100 : x.attempts == 2 ? 60 : 30; return t / sits.Count; }
+        float NutriScore() { return nutri != null ? nutri.score : 50; }
+        float CalmScore() { if (calm == null) return 50; return calm.failed ? calm.sync * .35f : Mathf.Clamp(calm.sync * 1.05f, 0, 100); }
+        int Performance() { return Mathf.RoundToInt(Mathf.Clamp(PhysScore() * .35f + NutriScore() * .35f + CalmScore() * .3f, 0, 100)); }
+        static int SubMinute(int perf) { return perf >= 75 ? 90 : perf >= 55 ? 75 : perf >= 35 ? 60 : perf >= 20 ? 45 : 30; }
+        static string Outcome(int perf)
+        {
+            if (perf >= 90) return "Jugaste los 90 minutos rindiendo al 100%";
+            if (perf >= 75) return "Jugaste los 90 minutos a buen nivel";
+            if (perf >= 55) return "Te cambiaron al minuto 75: se notó el cansancio";
+            if (perf >= 35) return "Saliste al minuto 60 con molestias musculares";
+            if (perf >= 20) return "El DT te sacó en el entretiempo";
+            return "El DT te cambió al minuto 30 por bajo rendimiento";
+        }
+
+        IEnumerator GoNextMatch()
+        {
+            au.PadStop(1.5f);
+            yield return Go(Scenes.Partido, () => { env.Set(EnvName.Stadium, StadiumMode.Match); NewStage(); au.CrowdStart(.5f); StartCoroutine(NextMatch()); },
+                "UNA SEMANA DESPUÉS", "Tu próximo partido", "Así se nota en la cancha todo el trabajo invisible", Pal.Teal, 2f);
+        }
+
+        IEnumerator NextMatch()
+        {
+            var scr = NewScreen();
+            int perf = Performance(), sub = SubMinute(perf); int home = perf >= 75 ? 2 : perf >= 50 ? 1 : 0, away = perf >= 55 ? 0 : 1;
+            Hint("Mirá a tu alrededor: estás jugando el próximo partido");
+            // Jugadores en juego y "vos" con la pelota
+            var walkers = env.StartNextMatch();
+            var players = walkers.Count > 0 ? walkers[0].transform.parent : stage;
+            var you = PlayerWalker.Make(players, Pal.Teal, Color.white, Pal.Teal, 9); you.name = "Vos (#10)";
+            you.areaX = new Vector2(-14, 14); you.areaZ = new Vector2(2, 30); you.wander = true; you.ResetPos(); you.transform.localPosition = new Vector3(3, 0, 6);
+            var ballT = Build.Prim(PrimitiveType.Sphere, you.transform, new Vector3(0, .11f, .45f), Vector3.one * .22f, Mat.Lit(Color.white, .5f)).transform;
+            var tag = UI.Canvas(you.transform, new Vector3(0, 2.15f, 0), .9f, .2f, Vector3.zero, "Vos");
+            UI.Framed(tag, 4, 4, UI.Wd(tag) - 8, UI.Ht(tag) - 8, new Color(.02f, .04f, .09f, .85f), Pal.Teal, 30, 3);
+            UI.T(tag, "VOS · #10", UI.Wd(tag) / 2, 54, 40, Pal.Teal, true, UI.Al.C, UI.Wd(tag));
+            tag.gameObject.AddComponent<Billboard>();
+            au.Whistle(true);
+            // Reloj del partido acelerado
+            float minute = 0; int shownMin = -1; bool goalShown = false;
+            while (minute < sub)
+            {
+                minute = Mathf.Min(sub, minute + Time.deltaTime * 90f / 14f);
+                int m = Mathf.FloorToInt(minute);
+                if (m != shownMin)
+                {
+                    shownMin = m; int h = home > 0 && m >= 30 ? (home > 1 && m >= 70 ? 2 : 1) : 0;
+                    if (h > 0 && !goalShown && m >= 30) { goalShown = true; au.CrowdCheer(); }
+                    env.NextMatchBoard(m, h, away > 0 && m >= 50 ? 1 : 0, "Piki FC con el #10 en cancha");
+                }
+                ballT.Rotate(360 * Time.deltaTime, 0, 0, Space.Self);
+                if (scr == null) yield break;
+                yield return null;
+            }
+            if (sub < 90)
+            {
+                au.Whistle(); env.NextMatchBoard(sub, home > 0 && sub >= 30 ? 1 : 0, away > 0 && sub >= 50 ? 1 : 0, "CAMBIO · sale el #10");
+                Destroy(ballT.gameObject);
+                you.GoTo(new Vector3(-38.5f, 0, -9), 1.2f, false);
+                yield return new WaitForSeconds(3f);
+            }
+            else { au.Whistle(); env.NextMatchBoard(90, home, away, "FINAL · el #10 jugó los 90 minutos"); au.CrowdCheer(); yield return new WaitForSeconds(2f); }
+            ShowNextMatchPanel(perf, true);
+        }
+
+        void ShowNextMatchPanel(int perf, bool animate)
+        {
+            NewScreen();
+            Hint("Tu rendimiento en el próximo partido depende de cómo te recuperaste");
+            Color pc = Color.HSVToRGB(Mathf.Lerp(0, 125, perf / 100f) / 360f, .75f, .95f);
+            var p = Panel(new Vector3(0, 1.88f, 2.85f), 2.7f, 1.74f, pc); float W = UI.Wd(p), H = UI.Ht(p);
+            UI.T(p, "TU PRÓXIMO PARTIDO · RENDIMIENTO", 56, 64, 19, pc, true);
+            UI.Wrap(p, Outcome(perf), 56, 130, W - 112, 54, 46, Color.white, true);
+            // Barra de rendimiento con gradiente rojo → verde
+            float bx = 56, by = 236, bw = W - 112, bh = 34; int segs = 40;
+            UI.Round(p, bx - 4, by - 4, bw + 8, bh + 8, new Color(1, 1, 1, .12f), (bh + 8) / 2);
+            for (int k = 0; k < segs; k++)
+            {
+                float u = (float)k / segs; Color c = Color.HSVToRGB(Mathf.Lerp(0, 125, u) / 360f, .8f, .9f);
+                UI.Img(p, bx + u * bw, by, bw / segs - 2, bh, null, Pal.A(c, .28f));
+            }
+            var fill = UI.Round(p, bx, by, bh, bh, pc, bh / 2);
+            var marker = UI.Rect(p, bx, by - 30, 2, 2, "marcador");
+            UI.Icon(marker, Spr.Circle, 1, 1, 14, Color.white);
+            var pct = UI.T(p, "0%", bx, by + bh + 58, 46, pc, true, UI.Al.C, 200);
+            UI.Wrap(p, "El DT te cambió por bajo rendimiento", bx, by + bh + 34, 300, 22, 18, Pal.Red, true);
+            UI.Wrap(p, "Jugaste los 90 min rindiendo al 100%", bx + bw - 300, by + bh + 34, 300, 22, 18, Pal.Green, true, false, UI.Al.R);
+            // Desglose por etapa
+            var parts = new[] { new { n = "Recuperación física", v = PhysScore(), c = Pal.Red }, new { n = "Recuperación nutricional", v = NutriScore(), c = Pal.Yellow }, new { n = "Vuelta a la calma", v = CalmScore(), c = Pal.Purple } };
+            float cw = (W - 112 - 32) / 3;
+            for (int k = 0; k < 3; k++)
+            {
+                float x = 56 + k * (cw + 16), y = 372;
+                UI.Framed(p, x, y, cw, 110, new Color(.08f, .14f, .22f, 1), Pal.A(parts[k].c, .5f), 18, 2);
+                UI.T(p, parts[k].n, x + 20, y + 36, 19, parts[k].c, true);
+                UI.T(p, Mathf.RoundToInt(parts[k].v) + "%", x + 20, y + 84, 40, Color.white, true);
+                if (k == 2 && calm != null && calm.failed) UI.T(p, "misión fallida", x + cw - 20, y + 84, 18, Pal.Red, true, UI.Al.R, 200);
+            }
+            UI.T(p, "“Lo que no se ve en la recuperación, se ve en la cancha.”", W / 2, H - 40, 25, Pal.Orange, false, UI.Al.C, W, true);
+            var b1 = Btn("JUGAR DE NUEVO", new Vector3(-.6f, .88f, 2.8f), 1.05f, .22f, UI.Style.Primary, () => StartCoroutine(StartMatch()));
+            var b2 = Btn("VOLVER AL INICIO", new Vector3(.6f, .88f, 2.8f), 1.05f, .22f, UI.Style.Secondary, () => StartCoroutine(GoHome()));
+            UI.Appear(p, 0, .7f); UI.Appear(b1, .5f); UI.Appear(b2, .6f);
+            Action<float> setK = k =>
+            {
+                float v = perf / 100f * k; fill.Size = new Vector2(Mathf.Max(bh, bw * v), bh);
+                marker.localPosition = p.Center(bx + bw * v - 1, by - 30, 2, 2); pct.fontSize = 46; pct.text = Mathf.RoundToInt(perf * k) + "%";
+                pct.transform.localPosition = new Vector3(bx + bw * v - W / 2, pct.transform.localPosition.y, 0);
+            };
+            if (animate && Application.isPlaying) { setK(0); Tw.Go(2.2f, setK, Ease.Out); Tw.Later(2.2f, () => { if (perf >= 75) au.Final(); else au.Soft(); }); }
+            else setK(1);
+        }
+
         IEnumerator GoHome()
         {
             au.PadStop(1.5f); au.CrowdStop(1);

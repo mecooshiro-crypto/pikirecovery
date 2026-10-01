@@ -405,6 +405,22 @@ namespace Piki
             if (m == StadiumMode.Match) foreach (var p in players.GetComponentsInChildren<PlayerWalker>(true)) p.ResetPos();
             Scoreboard(m, m == StadiumMode.Dawn);
         }
+        // Próximo partido: los jugadores juegan por la cancha y el marcador muestra el reloj
+        public List<PlayerWalker> StartNextMatch()
+        {
+            var list = new List<PlayerWalker>();
+            if (players == null) return list;
+            players.gameObject.SetActive(true);
+            foreach (var p in players.GetComponentsInChildren<PlayerWalker>(true)) { p.wander = true; p.ResetPos(); list.Add(p); }
+            return list;
+        }
+        public void NextMatchBoard(int minute, int home, int away, string foot)
+        {
+            if (sbTitle == null) return;
+            sbTitle.gameObject.SetActive(true); sbHome.gameObject.SetActive(true); sbAway.gameObject.SetActive(true); sbScore.gameObject.SetActive(true); sbFoot.gameObject.SetActive(true);
+            sbBig1.gameObject.SetActive(false); sbBig2.gameObject.SetActive(false);
+            sbTitle.text = "PRÓXIMO PARTIDO · " + minute + "'"; sbAway.text = "RIVAL"; sbScore.text = home + " – " + away; sbFoot.text = foot;
+        }
         public void MatchScore(int home, int away, int extra) { if (sbScore == null) return; sbScore.text = home + " – " + away; sbTitle.text = "FINAL · 90+" + extra + "'"; }
 
         /* ------------------------------ VESTUARIO ------------------------------ */

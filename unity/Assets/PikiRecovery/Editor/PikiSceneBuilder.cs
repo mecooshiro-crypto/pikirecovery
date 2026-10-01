@@ -1,11 +1,12 @@
 // =====================================================================
 //  PIKI RECOVERY · Constructor de escenas (solo Editor)
 //  Menú: Piki Recovery ▸ Construir escenas
-//  Genera 4 escenas .unity con todo el contenido guardado y editable:
+//  Genera 5 escenas .unity con todo el contenido guardado y editable:
 //    00_Inicio     → hub de inicio + elección de deporte
 //    01_Cancha     → estadio al final del partido + etapa 1 (física)
 //    02_Vestuario  → vestuario + etapa 2 (nutrición)
 //    03_Calma      → estadio de noche + etapa 3 (respiración) + final
+//    04_Partido    → el próximo partido + barra de rendimiento
 //  Las texturas, materiales, mallas y sprites se guardan en
 //  Assets/PikiRecovery/Generated. Las escenas se agregan a Build Settings.
 // =====================================================================
@@ -31,6 +32,7 @@ namespace Piki.EditorTools
             new Def(Scenes.Cancha, PikiGame.StartAt.Cancha),
             new Def(Scenes.Vestuario, PikiGame.StartAt.Nutricion),
             new Def(Scenes.Calma, PikiGame.StartAt.Calma),
+            new Def(Scenes.Partido, PikiGame.StartAt.Partido),
         };
 
         static string curDir; static int counter; static readonly List<Object> created = new List<Object>();
@@ -47,7 +49,7 @@ namespace Piki.EditorTools
                 if (SessionState.GetBool("PikiRecovery.Asked", false)) return;
                 SessionState.SetBool("PikiRecovery.Asked", true);
                 if (EditorUtility.DisplayDialog("Piki Recovery",
-                    "¿Construir ahora las 4 escenas de Piki Recovery?\n\n00_Inicio · 01_Cancha · 02_Vestuario · 03_Calma\n\nTambién podés hacerlo después desde el menú Piki Recovery ▸ Construir escenas.",
+                    "¿Construir ahora las 5 escenas de Piki Recovery?\n\n00_Inicio · 01_Cancha · 02_Vestuario · 03_Calma · 04_Partido\n\nTambién podés hacerlo después desde el menú Piki Recovery ▸ Construir escenas.",
                     "Construir", "Más tarde"))
                     BuildAll();
             };
@@ -126,7 +128,7 @@ namespace Piki.EditorTools
             }
             EditorSceneManager.OpenScene(ScenesDir + "/" + Scenes.Inicio + ".unity");
             EditorUtility.DisplayDialog("Piki Recovery",
-                "¡Listo! Se crearon las 4 escenas en Assets/PikiRecovery/Scenes y se agregaron a Build Settings.\n\nEstá abierta 00_Inicio: apretá Play para jugar desde el principio.",
+                "¡Listo! Se crearon las 5 escenas en Assets/PikiRecovery/Scenes y se agregaron a Build Settings.\n\nEstá abierta 00_Inicio: apretá Play para jugar desde el principio.",
                 "OK");
         }
 

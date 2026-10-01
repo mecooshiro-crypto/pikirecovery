@@ -39,20 +39,38 @@ namespace Piki
             return w;
         }
         void Start() { ResetPos(); }
+        // wander = juega por la cancha (próximo partido) · exitWhenReached = desaparece al llegar al destino
+        public bool wander, exitWhenReached = true; public Vector2 areaX = new Vector2(-30, 30), areaZ = new Vector2(-45, 45);
         public void ResetPos()
         {
             gameObject.SetActive(true);
             var p = new Vector3(Random.Range(-28f, 25f), 0, Random.Range(-40f, 40f)); if (Vector3.Distance(p, new Vector3(0, 0, -6)) < 9) p.x -= 13;
-            transform.localPosition = p; speed = Random.Range(.9f, 1.5f); idle = Random.Range(0f, 5f); phase = Random.value * 6;
+            transform.localPosition = p; speed = Random.Range(.9f, 1.5f); idle = wander ? 0 : Random.Range(0f, 5f); phase = Random.value * 6;
+            if (wander) { speed = Random.Range(1.8f, 3.2f); target = RandomTarget(); }
         }
+        public Vector3 RandomTarget()
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                var p = new Vector3(Random.Range(areaX.x, areaX.y), 0, Random.Range(areaZ.x, areaZ.y));
+                if (Vector3.Distance(p, new Vector3(0, 0, -6)) > 7) return p;
+            }
+            return new Vector3(10, 0, 20);
+        }
+        public void GoTo(Vector3 t, float spd, bool exit) { wander = false; target = t; speed = spd; exitWhenReached = exit; idle = 0; }
         void Update()
         {
             float dt = Time.deltaTime;
             if (idle > 0) { idle -= dt; foreach (var l in legs) l.localRotation = Quaternion.Slerp(l.localRotation, Quaternion.identity, dt * 5); return; }
             Vector3 d = target - transform.localPosition; d.y = 0;
-            if (d.magnitude < 1.2f) { gameObject.SetActive(false); return; }
-            transform.localPosition += d.normalized * speed * dt; transform.localRotation = Quaternion.LookRotation(d.normalized);
-            phase += dt * speed * 5.5f; float s = Mathf.Sin(phase) * 26;
+            if (d.magnitude < 1.2f)
+            {
+                if (wander) { target = RandomTarget(); speed = Random.Range(1.8f, 3.2f); return; }
+                if (exitWhenReached) gameObject.SetActive(false); else idle = 999;
+                return;
+            }
+            transform.localPosition += d.normalized * speed * dt; transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.LookRotation(d.normalized), 1 - Mathf.Exp(-dt * 8));
+            phase += dt * speed * 5.5f; float s = Mathf.Sin(phase) * Mathf.Lerp(26, 40, Mathf.InverseLerp(1.5f, 3f, speed));
             legs[0].localEulerAngles = new Vector3(s, 0, 0); legs[1].localEulerAngles = new Vector3(-s, 0, 0);
             arms[0].localEulerAngles = new Vector3(-s * .8f, 0, 0); arms[1].localEulerAngles = new Vector3(s * .8f, 0, 0);
         }

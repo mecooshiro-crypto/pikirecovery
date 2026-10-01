@@ -1,7 +1,7 @@
 # Piki Recovery · Fútbol — versión Unity (360° / VR)
 
 Es la misma experiencia que la versión web (`index.html`), rehecha en C# para **Unity 6** (compilada contra la
-API de Unity; tu versión es 6000.4). El proyecto trae **4 escenas ya armadas** (estadio, vestuario, etc.) que
+API de Unity; tu versión es 6000.4). El proyecto trae **5 escenas ya armadas** (estadio, vestuario, etc.) que
 podés ver y editar en el editor. No hace falta importar modelos, imágenes ni audios: un constructor genera las
 escenas y guarda todo como assets.
 
@@ -11,14 +11,15 @@ escenas y guarda todo como assets.
    Si ya tenías una versión anterior, borrala antes.
 2. Cuando Unity termine de compilar aparece la ventana **"¿Construir ahora las 4 escenas?"**: tocá
    **Construir**. También podés hacerlo desde el menú **Piki Recovery ▸ Construir escenas**.
-3. Se crean 4 escenas en `Assets/PikiRecovery/Scenes`, con todo ya armado y visible en el editor:
+3. Se crean 5 escenas en `Assets/PikiRecovery/Scenes`, con todo ya armado y visible en el editor:
 
 | Escena | Qué tiene |
 |---|---|
 | `00_Inicio` | Hub de inicio (grilla, pelota, partículas), panel de bienvenida y elección de deporte |
 | `01_Cancha` | Estadio completo: césped con líneas, tribunas con público, techo, torres de luz, carteles LED, arcos con red, banderines, marcador, bancos, túnel, jugadores, pelota y botellas. Etapa 1 (física) |
 | `02_Vestuario` | Vestuario: piso y paredes de azulejos, 23 taquillas con camisetas numeradas, bancos, escudo, pizarra táctica, puerta y mesa de hidratación. Etapa 2 (nutrición) |
-| `03_Calma` | El mismo estadio, vacío y de noche, con estrellas. Etapa 3 (respiración) y pantalla final |
+| `03_Calma` | El mismo estadio, vacío y de noche, con estrellas. Etapa 3 (respiración) y resumen de la recuperación |
+| `04_Partido` | Tu próximo partido: jugás con el #10 y una barra muestra tu rendimiento según cómo te recuperaste |
 
 4. Abrí **`00_Inicio`** y apretá **▶ Play**. El juego pasa solo de una escena a la otra.
    También podés abrir cualquier escena y darle Play para probar solo esa etapa.
@@ -63,6 +64,10 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
    **EXHALAR** (6 s): hay que seguirlo con el puntero durante 6 ciclos. Si te salís, la cámara tiembla como si te
    agitaras y sube el pulso.
 6. **Final**: la cancha amanece en calma y aparece **RECUPERACIÓN COMPLETADA**, con el resumen de las 3 etapas.
+   Si te agitaste demasiado en la respiración, la misión falla (podés reintentar o seguir).
+7. **Tu próximo partido**: jugás con el #10 y el reloj avanza. Según tu recuperación jugás los 90 minutos o el DT
+   te cambia antes. Al final, una barra va de *"El DT te cambió por bajo rendimiento"* a
+   *"Jugaste los 90 minutos rindiendo al 100%"*, con el puntaje de cada etapa.
 
 ## Publicar en cada plataforma (*File → Build Profiles*)
 
