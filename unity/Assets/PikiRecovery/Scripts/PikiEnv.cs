@@ -338,7 +338,7 @@ namespace Piki
         {
             var back = Build.Prim(PrimitiveType.Cube, S, pos + Quaternion.Euler(0, ry, 0) * new Vector3(0, -.05f, .15f), new Vector3(len, 1, .25f), Mat.Lit(Pal.Hex("#0a0f14")));
             back.transform.localEulerAngles = new Vector3(0, ry, 0);
-            var c = UI.Canvas(S, pos, len, .9f, new Vector3(0, ry, 0), "LED", .01f, 2f);
+            var c = UI.Canvas(S, pos, len, .9f, new Vector3(0, ry, 0), "LED", .01f, 2f); c.baseOrder = -2000;
             UI.Img(c, 0, 0, UI.Wd(c), UI.Ht(c), null, Pal.Hex("#04080e"));
             string seg = "PIKI RECOVERY   •   EL TRABAJO INVISIBLE   •   RECUPERÁ · HIDRATÁ · RESPIRÁ   •   ";
             float cw = UI.TextWidth(seg, 56, true) / seg.Length; int vis = Mathf.Max(10, Mathf.FloorToInt((UI.Wd(c) - 40) / Mathf.Max(1, cw)));
@@ -369,7 +369,7 @@ namespace Piki
         void BuildScoreboard(Transform S)
         {
             Build.Prim(PrimitiveType.Cube, S, new Vector3(0, 25.5f, 66.6f), new Vector3(23, 8.6f, 1), Mat.Lit(Pal.Hex("#10151c")));
-            var c = UI.Canvas(S, new Vector3(0, 25.5f, 66f), 22, 7.7f, Vector3.zero, "Marcador", .02f, 2f);
+            var c = UI.Canvas(S, new Vector3(0, 25.5f, 66f), 22, 7.7f, Vector3.zero, "Marcador", .02f, 2f); c.baseOrder = -2000;
             UI.Img(c, 0, 0, UI.Wd(c), UI.Ht(c), null, Pal.Hex("#03070c"));
             UI.Framed(c, 8, 8, UI.Wd(c) - 16, UI.Ht(c) - 16, Pal.Hex("#03070c"), Pal.Teal, 10, 5);
             float W = UI.Wd(c);
@@ -383,7 +383,7 @@ namespace Piki
             Build.Glow(S, new Vector3(0, 25.5f, 65), 38, Pal.A(Pal.Teal, .2f));
             // marcador de enfrente con el logo
             Build.Prim(PrimitiveType.Cube, S, new Vector3(0, 25.5f, -66.6f), new Vector3(23, 8.6f, 1), Mat.Lit(Pal.Hex("#10151c")));
-            var l = UI.Canvas(S, new Vector3(0, 25.5f, -66f), 22, 7.7f, new Vector3(0, 180, 0), "Logo", .02f, 2f);
+            var l = UI.Canvas(S, new Vector3(0, 25.5f, -66f), 22, 7.7f, new Vector3(0, 180, 0), "Logo", .02f, 2f); l.baseOrder = -2000;
             UI.Img(l, 0, 0, UI.Wd(l), UI.Ht(l), null, Pal.Hex("#03070c"));
             UI.Icon(l, Spr.Ball, 200, 192, 120, Color.white);
             UI.T(l, "PIKI", 370, 190, 130, Pal.Teal, true); UI.T(l, "RECOVERY", 374, 290, 76, Color.white, true);
@@ -425,7 +425,7 @@ namespace Piki
             var wallM = Mat.Lit(Color.white, .6f, 0, wall.ToTex(true, TextureWrapMode.Repeat));
             var walls = new[] { new Vector4(0, H / 2, D / 2, 0), new Vector4(0, H / 2, -D / 2, 180), new Vector4(W / 2, H / 2, 0, 90), new Vector4(-W / 2, H / 2, 0, -90) };
             foreach (var w in walls) { var m = Build.MeshObj("Pared", L, Build.Wall(W, H, 2, 1), wallM); m.transform.localPosition = new Vector3(w.x, w.y, w.z); m.transform.localEulerAngles = new Vector3(0, w.w, 0); }
-            var bandText = UI.Canvas(L, new Vector3(0, 2.73f, D / 2 - .02f), 8, .2f, Vector3.zero, "Franja", .005f, 2);
+            var bandText = UI.Canvas(L, new Vector3(0, 2.73f, D / 2 - .02f), 8, .2f, Vector3.zero, "Franja", .005f, 2); bandText.baseOrder = -2000;
             UI.T(bandText, "PIKI FC · VESTUARIO LOCAL", UI.Wd(bandText) / 2, 34, 30, Pal.Ink, true, UI.Al.C, UI.Wd(bandText));
             var ceil = Build.MeshObj("Techo", L, Build.Floor(W, D), Mat.Lit(Pal.Hex("#2a3038"))); ceil.transform.localPosition = new Vector3(0, H, 0); ceil.transform.localEulerAngles = new Vector3(180, 0, 0);
             var lightM = Mat.Unlit(Pal.Hex("#fff8ea"), null, 2000);
@@ -446,7 +446,7 @@ namespace Piki
                 Build.Prim(PrimitiveType.Cube, g, new Vector3(0, 2f, -.27f), new Vector3(1.7f, .05f, .55f), woodDark);
                 Build.Prim(PrimitiveType.Cube, g, new Vector3(0, 2.4f, -.27f), new Vector3(1.7f, .06f, .55f), woodDark);
                 var j = Build.MeshObj("Camiseta", g, Build.Wall(.75f, .75f), jerseyM); j.transform.localPosition = new Vector3(0, 1.45f, -.06f);
-                var nc = UI.Canvas(g, new Vector3(0, 1.36f, -.07f), .5f, .3f, Vector3.zero, "Número", .002f, 3);
+                var nc = UI.Canvas(g, new Vector3(0, 1.36f, -.07f), .5f, .3f, Vector3.zero, "Número", .002f, 3); nc.baseOrder = -2000;
                 UI.T(nc, num.ToString(), UI.Wd(nc) / 2, 118, 110, Color.white, true, UI.Al.C, UI.Wd(nc));
                 foreach (int s in new[] { -1, 1 }) Build.Prim(PrimitiveType.Cube, g, new Vector3(s * .08f, .5f, -.2f), new Vector3(.1f, .08f, .27f), boot);
                 Build.Prim(PrimitiveType.Capsule, g, new Vector3(0, 2.16f, -.25f), new Vector3(.24f, .3f, .24f), Mat.Lit(bags[num % 3], .3f), new Vector3(0, 0, 90));
@@ -459,14 +459,14 @@ namespace Piki
             for (int i = 0; i < 7; i++) locker(W / 2 - .3f, 5.4f - i * 1.8f, 90);
 
             // Escudo
-            var crest = UI.Canvas(L, new Vector3(-5.4f, 3.3f, D / 2 - .05f), 1.2f, 1.2f, Vector3.zero, "Escudo", .004f, 2);
+            var crest = UI.Canvas(L, new Vector3(-5.4f, 3.3f, D / 2 - .05f), 1.2f, 1.2f, Vector3.zero, "Escudo", .004f, 2); crest.baseOrder = -2000;
             float cw = UI.Wd(crest);
             UI.Round(crest, 20, 20, cw - 40, cw - 40, Pal.Teal, 60); UI.Round(crest, 34, 34, cw - 68, cw - 68, Pal.Hex("#0b2a45"), 50);
             UI.T(crest, "PIKI FC", cw / 2, 90, 52, Color.white, true, UI.Al.C, cw); UI.Icon(crest, Spr.Ball, cw / 2, cw / 2 + 10, 80, Color.white);
             UI.T(crest, "EST. 2024", cw / 2, cw - 50, 26, Pal.Teal, true, UI.Al.C, cw);
 
             // Pizarra táctica y puerta (detrás del jugador)
-            var boardC = UI.Canvas(L, new Vector3(2.5f, 1.9f, -D / 2 + .05f), 2.8f, 1.75f, new Vector3(0, 180, 0), "Pizarra", .004f, 2);
+            var boardC = UI.Canvas(L, new Vector3(2.5f, 1.9f, -D / 2 + .05f), 2.8f, 1.75f, new Vector3(0, 180, 0), "Pizarra", .004f, 2); boardC.baseOrder = -2000;
             float bw = UI.Wd(boardC), bh = UI.Ht(boardC);
             UI.Img(boardC, 0, 0, bw, bh, null, Pal.Hex("#f7f8fa"));
             UI.Framed(boardC, 40, 60, bw - 80, bh - 100, Pal.Hex("#f7f8fa"), Pal.Hex("#2d8a44"), 4, 4);
@@ -476,7 +476,7 @@ namespace Piki
             foreach (var p in new[] { new Vector2(540, 180), new Vector2(540, 300), new Vector2(620, 240) }) UI.Icon(boardC, Spr.Cross, p.x, p.y, 16, Pal.Hex("#d63447"));
             UI.T(boardC, "RECUPERAR = RENDIR", bw / 2, 44, 34, Pal.Hex("#0b2a45"), true, UI.Al.C, bw);
             Build.Prim(PrimitiveType.Cube, L, new Vector3(-3, 1.15f, -D / 2 + .05f), new Vector3(1.2f, 2.3f, .1f), Mat.Lit(Pal.Hex("#1b2530")));
-            var exit = UI.Canvas(L, new Vector3(-3, 2.55f, -D / 2 + .12f), .8f, .3f, new Vector3(0, 180, 0), "Salida", .004f, 2);
+            var exit = UI.Canvas(L, new Vector3(-3, 2.55f, -D / 2 + .12f), .8f, .3f, new Vector3(0, 180, 0), "Salida", .004f, 2); exit.baseOrder = -2000;
             UI.Img(exit, 0, 0, UI.Wd(exit), UI.Ht(exit), null, Pal.Hex("#0a7f3f")); UI.T(exit, "A LA CANCHA →", UI.Wd(exit) / 2, 50, 30, Color.white, true, UI.Al.C, UI.Wd(exit));
 
             // Mesa de hidratación

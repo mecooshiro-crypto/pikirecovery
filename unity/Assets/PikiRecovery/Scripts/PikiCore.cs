@@ -77,6 +77,14 @@ namespace Piki
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             return m;
         }
+        // Material de holograma (Shaders/PikiHologram.shader); si no está, usa uno transparente simple
+        public static Material Hologram(Color rim, Color core, int queue = 3000)
+        {
+            var sh = Shader.Find("Piki/Hologram");
+            if (sh == null) return Unlit(new Color(rim.r, rim.g, rim.b, .45f), null, queue);
+            var m = new Material(sh); m.SetColor("_Color", rim); m.SetColor("_Core", core); m.renderQueue = queue;
+            return Persist.Keep(m, "Holograma");
+        }
         public static Material Unlit(Color c, Texture tex = null, int queue = 3000)
         {
             var m = new Material(UnlitShader); m.color = c;
