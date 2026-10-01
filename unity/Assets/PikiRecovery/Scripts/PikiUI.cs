@@ -183,9 +183,9 @@ namespace Piki
         {
             var c = Canvas(parent, pos, wM, hM, euler, "Botón: " + label);
             float W = Wd(c), H = Ht(c), r = H / 2 - 4;
-            Color fill = style == Style.Primary ? Pal.Hex("#22f0bf") : style == Style.Warm ? Pal.Hex("#ff9a4d") : new Color(1, 1, 1, .09f);
+            Color fill = style == Style.Primary ? Pal.Hex("#22f0bf") : style == Style.Warm ? Pal.Hex("#ff9a4d") : Color.black;
             Color txt = style == Style.Secondary ? Pal.Text : style == Style.Warm ? Pal.Hex("#1a0c02") : Pal.Ink;
-            Color bcol = style == Style.Secondary ? new Color(1, 1, 1, .45f) : new Color(1, 1, 1, .5f);
+            Color bcol = style == Style.Secondary ? Color.black : new Color(1, 1, 1, .5f);
             var border = Round(c, 0, 0, W, H, bcol, r + 4);
             var bg = Round(c, 4, 4, W - 8, H - 8, fill, r);
             T(c, label, W / 2, H / 2 + H * .14f, Mathf.Round(H * .34f), txt, true, Al.C, W);

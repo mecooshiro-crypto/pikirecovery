@@ -28,7 +28,7 @@ namespace Piki
         }
     }
     public class Nutri { public float E = 30, H = 22, R = 18, t, balance; public int good, bad, missed, over, score, stars, level = 1; public bool running; }
-    public class CalmRes { public int cycles = 6, sync, hr = 64; public bool guided = true, failed; }
+    public class CalmRes { public int cycles = 3, sync, hr = 64; public bool guided = true, failed; }
     public class CardInfo { public string kicker, title, sub; public Color color = Pal.Teal; public float hold = 1.5f, fadeT = .9f; }
 
     // Datos que viajan de una escena a la otra durante una partida
@@ -600,7 +600,7 @@ namespace Piki
             var hud = UI.Canvas(scr, new Vector3(0, 2.72f, 3.6f), 3.3f, .76f, new Vector3(-14, 0, 0), "HUD"); UI.PanelBg(hud, Pal.Yellow);
             float HW = UI.Wd(hud);
             UI.T(hud, "TIEMPO", 44, 62, 17, Pal.Muted, true);
-            var tTime = UI.T(hud, "1:00", 44, 142, 76, Color.white, true);
+            var tTime = UI.T(hud, "0:" + GAME_SECS, 44, 142, 76, Color.white, true);
             var tLevel = UI.T(hud, "NIVEL 1 / 3", 44, 190, 20, Pal.Yellow, true);
             var lvlDots = new UIImage[3]; for (int i = 0; i < 3; i++) lvlDots[i] = UI.Round(hud, 44 + i * 44, 204, 36, 10, i == 0 ? Pal.Yellow : new Color(1, 1, 1, .15f), 5);
             var tScore = UI.T(hud, "Elegidos 0 · No prioritarios 0", 44, 256, 20, Pal.Text, true);
@@ -619,7 +619,7 @@ namespace Piki
             }
             Action refreshHud = () =>
             {
-                float left = Mathf.Max(0, 60 - N.t); int t = Mathf.CeilToInt(left);
+                float left = Mathf.Max(0, GAME_SECS - N.t); int t = Mathf.CeilToInt(left);
                 tTime.text = (t / 60) + ":" + (t % 60).ToString("00"); tTime.color = left < 10 ? Pal.Red : Color.white;
                 tLevel.text = "NIVEL " + N.level + " / 3"; for (int i = 0; i < 3; i++) lvlDots[i].color = i < N.level ? Pal.Yellow : new Color(1, 1, 1, .15f);
                 tScore.text = "Elegidos " + N.good + " · No prioritarios " + N.bad;
@@ -655,7 +655,7 @@ namespace Piki
             var items = new List<Item>();
             var good = Content.Foods.Where(f => f.good).ToArray(); var bad = Content.Foods.Where(f => !f.good).ToArray();
             var byCat = new[] { good.Where(f => f.E >= Mathf.Max(f.H, f.R)).ToArray(), good.Where(f => f.H > f.E && f.H >= f.R).ToArray(), good.Where(f => f.R > f.E && f.R > f.H).ToArray() };
-            float[] spawnEvery = { 0, 1.45f, 1f, .68f }, speed = { 0, 1f, 1.45f, 1.95f }, badP = { 0, .26f, .32f, .38f }, decay = { 0, .45f, .65f, .85f };
+            float[] spawnEvery = { 0, 1.45f, 1f, .68f }, speed = { 0, 1f, 1.45f, 1.95f }, badP = { 0, .26f, .32f, .38f }, decay = { 0, 1.1f, 1.5f, 1.9f }; // las barras bajan rápido
             float spawnT = 1, lastLevel = 1, hudT = 0;
 
             Action<Item> collect = it =>
@@ -697,7 +697,7 @@ namespace Piki
             while (N.running)
             {
                 float dt = Time.deltaTime; N.t += dt;
-                int lvl = N.t < 20 ? 1 : N.t < 40 ? 2 : 3; N.level = lvl;
+                int lvl = N.t < GAME_SECS / 3f ? 1 : N.t < GAME_SECS * 2 / 3f ? 2 : 3; N.level = lvl;
                 if (lvl != lastLevel) { lastLevel = lvl; au.Level(); au.BeatLevel(lvl); StartCoroutine(showBanner(lvl == 2 ? "NIVEL 2 · ¡Más rápido!" : "NIVEL 3 · ¡Máxima presión!")); rig.FuseTime = lvl == 3 ? .55f : .65f; }
                 N.E = Mathf.Clamp(N.E - decay[lvl] * dt, 0, 100); N.H = Mathf.Clamp(N.H - decay[lvl] * 1.15f * dt, 0, 100); N.R = Mathf.Clamp(N.R - decay[lvl] * .75f * dt, 0, 100);
                 if (N.E >= ZMIN && N.E <= ZMAX && N.H >= ZMIN && N.H <= ZMAX && N.R >= ZMIN && N.R <= ZMAX) N.balance += dt;
@@ -711,7 +711,7 @@ namespace Piki
                     if (Mathf.Abs(it.a) > 1.4f && Mathf.Sign(it.a) == it.dir) { it.alive = false; items.Remove(it); if (it.f.good) N.missed++; Destroy(it.root.gameObject); }
                 }
                 hudT -= dt; if (hudT <= 0) { hudT = .1f; refreshHud(); }
-                if (N.t >= 60) N.running = false;
+                if (N.t >= GAME_SECS) N.running = false;
                 yield return null;
             }
             au.BeatStop(1.5f); au.Whistle(true); rig.FuseTime = 1.4f;
@@ -720,6 +720,7 @@ namespace Piki
             yield return showBanner("¡TIEMPO!");
             ShowNutriResults();
         }
+        const int GAME_SECS = 35; // duración del minijuego de alimentación
         IEnumerator BannerCo(UIPanel banner, UIText t, string s)
         {
             if (banner == null) yield break;
@@ -797,7 +798,7 @@ namespace Piki
             UI.T(p, "INHALÁ", 52, 350, 28, Pal.Teal, true); UI.T(p, "el camino sube: llevá el punto hacia arriba (4 s)", 180, 350, 22, Pal.Text, true);
             UI.T(p, "EXHALÁ", 52, 390, 28, Pal.Purple, true); UI.T(p, "el camino baja: llevá el punto hacia abajo (6 s)", 180, 390, 22, Pal.Text, true);
             UI.Wrap(p, "PC: mové el mouse (sin hacer clic). Celular: deslizá el dedo o mové el teléfono. VR: apuntá con el control o con la mirada. Si te salís del camino, tu respiración se agita y la vista tiembla.", 52, 448, W - 104, 28, 19, Pal.Muted);
-            UI.T(p, "6 ciclos · 1 minuto", 52, H - 34, 19, Pal.Purple, true);
+            UI.T(p, "3 ciclos · 30 segundos", 52, H - 34, 19, Pal.Purple, true);
             var b = Btn("COMENZAR RESPIRACIÓN", new Vector3(0, .92f, 2.72f), 1.2f, .22f, UI.Style.Primary, () => StartCoroutine(Breathing()));
             UI.Appear(p); UI.Appear(b, .3f);
         }
@@ -814,15 +815,15 @@ namespace Piki
         {
             var scr = NewScreen();
             Hint("Seguí el camino con el puntero: sube al INHALAR y baja al EXHALAR · Si te salís, te agitás");
-            const int CYCLES = 6; float TOTAL = (IN + OUT) * CYCLES;
+            const int CYCLES = 3; float TOTAL = (IN + OUT) * CYCLES;
             // ---- Pista del camino ----
             const float TW = 2.4f, TH = 1.0f, PAST = 1.5f, FUTURE = 4.5f, YR = .36f, TOL = .085f;
-            var track = UI.Canvas(scr, new Vector3(0, 1.5f, 2.6f), TW, TH, Vector3.zero, "Camino de respiración");
+            var track = UI.Canvas(scr, new Vector3(0, 1.78f, 2.6f), TW, TH, Vector3.zero, "Camino de respiración");
             float PW = UI.Wd(track), PH = UI.Ht(track);
             UI.Framed(track, 0, 0, PW, PH, new Color(.02f, .04f, .1f, .82f), Pal.A(Pal.Purple, .55f), 30, 3);
             for (int g = 1; g < 6; g++) UI.Img(track, 20, PH * g / 6, PW - 40, 1.5f, null, new Color(1, 1, 1, .05f));
-            UI.T(track, "INHALÁ ↑", 24, 40, 18, Pal.A(Pal.Teal, .8f), true);
-            UI.T(track, "EXHALÁ ↓", 24, PH - 18, 18, Pal.A(Pal.Purple, .8f), true);
+            UI.T(track, "INHALÁ", 24, 40, 18, Pal.A(Pal.Teal, .8f), true);
+            UI.T(track, "EXHALÁ", 24, PH - 18, 18, Pal.A(Pal.Purple, .8f), true);
             float xPlay = -TW / 2 + PAST / (PAST + FUTURE) * TW;                       // posición del "ahora"
             UI.Img(track, (xPlay + TW / 2) / UI.S - 1, 12, 2, PH - 24, null, new Color(1, 1, 1, .22f));
             // Línea del camino (pasado tenue, futuro brillante)
@@ -840,13 +841,13 @@ namespace Piki
             foreach (var r in new[] { target.GetComponent<Renderer>(), tGlow.GetComponent<Renderer>(), me.GetComponent<Renderer>() }) r.sortingOrder = 2001;
             var pts = new Vector3[90];
 
-            var lab = UI.Canvas(scr, new Vector3(0, 2.32f, 2.6f), 1.8f, .42f, Vector3.zero, "Fase");
+            var lab = UI.Canvas(scr, new Vector3(0, 1.03f, 2.6f), 1.8f, .42f, Vector3.zero, "Fase"); // palabras debajo del camino
             var tWord = UI.T(lab, "PREPARATE", UI.Wd(lab) / 2, 104, 92, Color.white, true, UI.Al.C, UI.Wd(lab));
             var tSec = UI.T(lab, "Mové el puntero hasta el anillo", UI.Wd(lab) / 2, 158, 26, Pal.Muted, true, UI.Al.C, UI.Wd(lab));
-            var info = UI.Canvas(scr, new Vector3(0, .78f, 2.6f), 2.4f, .34f, new Vector3(12, 0, 0), "Info"); float IW = UI.Wd(info), IH = UI.Ht(info);
+            var info = UI.Canvas(scr, new Vector3(0, .64f, 2.6f), 2.4f, .34f, new Vector3(12, 0, 0), "Info"); float IW = UI.Wd(info), IH = UI.Ht(info);
             UI.Framed(info, 6, 6, IW - 12, IH - 12, new Color(.02f, .04f, .09f, .75f), Pal.A(Pal.Purple, .5f), (IH - 12) / 2, 2);
             var cdots = new UIImage[CYCLES]; for (int i = 0; i < CYCLES; i++) cdots[i] = UI.Icon(info, Spr.Circle, 70 + i * 34, IH / 2, 10, new Color(1, 1, 1, .15f));
-            var tCycle = UI.T(info, "Ciclo 1 de 6", 70 + CYCLES * 34 + 10, IH / 2 + 9, 25, Color.white, true);
+            var tCycle = UI.T(info, "Ciclo 1 de " + CYCLES, 70 + CYCLES * 34 + 10, IH / 2 + 9, 25, Color.white, true);
             var tSync = UI.T(info, "En el camino —", IW * .6f, IH / 2 + 9, 25, Pal.Teal, true, UI.Al.C, 360);
             UI.Icon(info, Spr.Heart, IW - 190, IH / 2, 16, Pal.Red); var tHr = UI.T(info, "104 lpm", IW - 162, IH / 2 + 9, 25, Color.white, true);
             UI.Appear(track); UI.Appear(lab, .1f); UI.Appear(info, .2f);
@@ -899,7 +900,7 @@ namespace Piki
                 if (infoT <= 0)
                 {
                     infoT = .12f; int secs = Mathf.CeilToInt(inhale ? IN - ph : IN + OUT - ph);
-                    tWord.text = inhale ? "INHALÁ ↑" : "EXHALÁ ↓"; tWord.color = inhale ? Pal.Teal : Pal.Purple;
+                    tWord.text = inhale ? "INHALÁ" : "EXHALÁ"; tWord.color = inhale ? Pal.Teal : Pal.Purple;
                     tSec.text = shake > .35f ? "Volvé al camino… respirá tranquilo" : secs.ToString();
                     tSec.color = shake > .35f ? Pal.Orange : Pal.Muted;
                     for (int i = 0; i < CYCLES; i++) cdots[i].color = i < cyc ? Pal.Purple : i == cyc ? Pal.A(Pal.Purple, .45f) : new Color(1, 1, 1, .15f);
@@ -918,8 +919,8 @@ namespace Piki
                 au.Wrong(); tWord.text = "MISIÓN FALLIDA"; tWord.color = Pal.Red; tSec.text = "Te agitaste demasiado: tu cuerpo no logró volver a la calma"; tSec.color = Pal.Hex("#ffb3bb");
                 tSync.text = "Agitación 100%"; tSync.color = Pal.Red;
                 bool decided = false, retry = false;
-                var bR = Btn("REINTENTAR", new Vector3(-.62f, .42f, 2.55f), 1.05f, .22f, UI.Style.Primary, () => { decided = true; retry = true; });
-                var bC = Btn("CONTINUAR IGUAL", new Vector3(.62f, .42f, 2.55f), 1.05f, .22f, UI.Style.Secondary, () => { decided = true; });
+                var bR = Btn("REINTENTAR", new Vector3(-.62f, .36f, 2.5f), 1.05f, .22f, UI.Style.Primary, () => { decided = true; retry = true; });
+                var bC = Btn("CONTINUAR IGUAL", new Vector3(.62f, .36f, 2.5f), 1.05f, .22f, UI.Style.Secondary, () => { decided = true; });
                 UI.Appear(bR, .3f); UI.Appear(bC, .4f);
                 while (!decided) { if (scr == null) yield break; yield return null; }
                 if (retry) { StartCoroutine(Breathing()); yield break; }

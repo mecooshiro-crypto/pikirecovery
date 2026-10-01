@@ -58,13 +58,13 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
    intensidad y señales). Agarrás la herramienta que corresponde (**bolsa de hielo, compresa tibia o pelota de masaje**) y la pasás vos mismo por la zona marcada. Para el masaje hay que moverla en círculos:
    - Si acertás, ves "Respuesta correcta" y se aplica el tratamiento, con partículas y reloj.
    - Si no, ves "No es la mejor opción…" con una pista, y volvés a intentar.
-4. **Etapa 2, recuperación nutricional**: el vestuario, con un minijuego de 60 s en el que los alimentos 3D
+4. **Etapa 2, recuperación nutricional**: el vestuario, con un minijuego de 35 s en el que los alimentos 3D
    pasan a tu alrededor.
    - Barras de **Energía, Hidratación y Reparación**, con zona óptima entre 60 y 90 %.
    - Hay alimentos no prioritarios.
    - Tiene 3 niveles: más velocidad, más elementos y música más rápida.
 5. **Etapa 3, vuelta a la calma**: estadio vacío de noche, con estrellas. Un camino luminoso sube al **INHALAR** (4 s) y baja al
-   **EXHALAR** (6 s): hay que seguirlo con el puntero durante 6 ciclos. Si te salís, la cámara tiembla como si te
+   **EXHALAR** (6 s): hay que seguirlo con el puntero durante 3 ciclos. Si te salís, la cámara tiembla como si te
    agitaras y sube el pulso.
 6. **Final**: la cancha amanece en calma y aparece **RECUPERACIÓN COMPLETADA**, con el resumen de las 3 etapas.
    Si te agitaste demasiado en la respiración, la misión falla (podés reintentar o seguir).

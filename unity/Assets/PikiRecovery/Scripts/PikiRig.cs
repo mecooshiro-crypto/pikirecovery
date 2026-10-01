@@ -72,7 +72,8 @@ namespace Piki
         public float Shake; // 0..1 · temblor de cámara (respiración agitada)
         public bool GazeMode { get; private set; }
         bool sticky;
-        public void ForceRelease() { if (Held != null) { var t = Held; Held = null; sticky = false; t.Release(); } }
+        public void ForceRelease() { if (Held != null) { var t = Held; Held = null; sticky = false; t.Release(); blockLook = true; } }
+        bool blockLook; // después de soltar una herramienta, no mover la cámara hasta soltar el clic/dedo
         // Modo solo-mirada: la herramienta queda "pegada" a la mirada hasta que el juego la suelta
         public void StickyGrab(PikiTool t) { if (Held != null || t == null || t.Disabled) return; Held = t; sticky = true; t.Grab(); }
 
@@ -163,7 +164,7 @@ namespace Piki
             if (XR) ApplyHeadPose();
             else
             {
-                if (pressing && pointerHeld && Held == null)
+                if (pressing && pointerHeld && Held == null && !blockLook)
                 {
                     Vector2 d = pos - lastPos; dragDist += d.magnitude; lastPos = pos;
                     float k = 90f / Mathf.Max(400, Screen.height);
@@ -201,6 +202,7 @@ namespace Piki
             bool releaseNow = PIn.MouseUp || PIn.TouchUp || (!trig && trigPrev);
             trigPrev = trig;
             if (PIn.MouseUp || PIn.TouchUp) pressing = false;
+            if (!PIn.MouseHeld && !PIn.TouchHeld) blockLook = false;
             GazeMode = gazeMode;
 
             PikiButton hit = null; PikiTool hitTool = null; RaycastHit rh; float hitDist = 6;
