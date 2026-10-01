@@ -11,6 +11,16 @@ namespace Piki
     public class Runner : MonoBehaviour
     {
         static Runner inst;
-        public static Runner I { get { if (inst == null) inst = new GameObject("PikiRunner").AddComponent<Runner>(); return inst; } }
+        // Objeto que corre las animaciones y corrutinas (queda en la escena: "Procesos (animaciones)")
+        public static Runner I
+        {
+            get
+            {
+                if (inst == null) inst = UnityEngine.Object.FindFirstObjectByType<Runner>();
+                if (inst == null) inst = new GameObject("Procesos (animaciones)").AddComponent<Runner>();
+                return inst;
+            }
+        }
+        void Awake() { inst = this; }
     }
 }

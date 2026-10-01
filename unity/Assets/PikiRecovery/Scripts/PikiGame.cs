@@ -20,6 +20,12 @@ namespace Piki
     public static class Scenes
     {
         public const string Inicio = "00_Inicio", Cancha = "01_Cancha", Vestuario = "02_Vestuario", Calma = "03_Calma", Partido = "04_Partido";
+        // Escenas de fundido (cartel negro) que van antes de cada etapa
+        public const string FCancha = "F1_Fundido_Estadio", FVestuario = "F2_Fundido_Vestuario", FCalma = "F3_Fundido_Calma", FPartido = "F4_Fundido_Partido";
+        public static string FadeFor(string scene)
+        {
+            return scene == Cancha ? FCancha : scene == Vestuario ? FVestuario : scene == Calma ? FCalma : scene == Partido ? FPartido : null;
+        }
     }
     public class Nutri { public float E = 30, H = 22, R = 18, t, balance; public int good, bad, missed, over, score, stars, level = 1; public bool running; }
     public class CalmRes { public int cycles = 6, sync, hr = 64; public bool guided = true, failed; }
@@ -73,17 +79,50 @@ namespace Piki
             if (match == null) match = MatchStats.New();
             env.MatchScore(match.home, match.away, match.minutes - 90);
             env.Set(need, ModeFor(startAt));
-            if (withPreview)
+            if (withPreview) BakeScreens(need);
+        }
+
+        // Guarda en la escena TODAS las pantallas de esta etapa (una por objeto, desactivadas salvo la primera)
+        // para que se vean en la Hierarchy. Al dar Play se regeneran con los datos de la partida.
+        void BakeScreens(EnvName need)
+        {
+            new GameObject("Procesos (animaciones)").AddComponent<Runner>();
+            if (au == null) au = gameObject.AddComponent<PikiAudio>(); // sin sonido en el editor
+            PikiSession.NewRun(); match = MatchStats.New();
+            NewStage();
+            var list = new List<KeyValuePair<string, Action>>();
+            Action<string, Action> add = (n, a) => list.Add(new KeyValuePair<string, Action>(n, a));
+            Action<IEnumerator> step = it => { try { it.MoveNext(); } catch (Exception) { } };
+            if (need == EnvName.Hub) { add("Bienvenida", ShowWelcome); add("Elección de deporte", ShowSport); }
+            else if (need == EnvName.Locker)
             {
-                NewStage();
-                if (need == EnvName.Hub) ShowWelcome();
-                else if (need == EnvName.Locker) ShowNutriIntro();
-                else if (startAt == StartAt.Partido) { EnsureSampleResults(); ShowNextMatchPanel(Performance(), false); }
-                else if (ModeFor(startAt) == StadiumMode.Match) ShowArrival();
-                else ShowCalmIntro();
-                previewRoot = stage.gameObject; previewRoot.name = "UI (vista previa · se regenera al dar Play)";
-                stage = null; screen = null; Hint("");
+                add("Intro nutrición", ShowNutriIntro);
+                add("Minijuego (HUD)", () => step(NutritionGame()));
+                add("Resultados nutrición", () => { nutri = new Nutri { E = 74, H = 82, R = 66, good = 18, bad = 3, missed = 9, balance = 21 }; ShowNutriResults(); });
             }
+            else if (startAt == StartAt.Partido) add("Rendimiento en el próximo partido", () => { EnsureSampleResults(); ShowNextMatchPanel(Performance(), false); });
+            else if (ModeFor(startAt) == StadiumMode.Match)
+            {
+                add("Final del partido", ShowArrival);
+                add("Intro recuperación física", ShowPhysIntro);
+                add("Situación (holograma y herramientas)", () => { sits = Content.Generate(match); ShowSituation(0); });
+                add("Resumen recuperación física", () => { foreach (var x in sits) { x.attempts = 1; x.firstTry = true; } ShowPhysSummary(); });
+            }
+            else
+            {
+                add("Intro vuelta a la calma", ShowCalmIntro);
+                add("Respiración (camino)", () => step(Breathing()));
+                add("Recuperación completada", () => { EnsureSampleResults(); ShowFinal(); });
+            }
+            for (int k = 0; k < list.Count; k++)
+            {
+                try { list[k].Value(); } catch (Exception e) { Debug.LogWarning("Piki Recovery: vista previa " + list[k].Key + ": " + e.Message); }
+                if (screen != null) { screen.name = "Pantalla " + (k + 1) + " · " + list[k].Key; screen.gameObject.SetActive(k == 0); screen = null; }
+            }
+            previewRoot = stage.gameObject; previewRoot.name = "Pantallas (vista previa · se regeneran al dar Play)";
+            stage = null; screen = null; body = null; Hint(""); rig.Shake = 0;
+            if (au != null && !Application.isPlaying) { Build.Kill(au); au = null; }
+            PikiSession.NewRun(); PikiSession.match = null;
         }
 
         /* ------------------------------ Arranque ------------------------------ */
@@ -159,8 +198,11 @@ namespace Piki
             {
                 leaving = true; au.Whoosh();
                 yield return Fade(1, fadeT);
-                PikiSession.card = title == null ? null : new CardInfo { kicker = kicker, title = title, sub = sub, color = col ?? Pal.Teal, hold = hold, fadeT = fadeT };
-                UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+                // Si existe la escena de fundido, el cartel se muestra ahí; si no, se muestra al llegar
+                string fade = Scenes.FadeFor(scene);
+                bool useFade = fade != null && Application.CanStreamedLevelBeLoaded(fade);
+                PikiSession.card = title == null || useFade ? null : new CardInfo { kicker = kicker, title = title, sub = sub, color = col ?? Pal.Teal, hold = hold, fadeT = fadeT };
+                UnityEngine.SceneManagement.SceneManager.LoadScene(useFade ? fade : scene);
             }
             else yield return Transition(fallback, kicker, title, sub, col, hold, fadeT);
         }
@@ -433,7 +475,7 @@ namespace Piki
                 var tool = ToolModel.Make(opt, toolsRoot, home); tools.Add(tool);
             }
             PikiTool.Focus = body.MarkerT;
-            StartCoroutine(SituationLoop(s, i, screen, mode, () => barFill, () => timeText, () => instrText, toolsRoot, tools));
+            if (Application.isPlaying) StartCoroutine(SituationLoop(s, i, screen, mode, () => barFill, () => timeText, () => instrText, toolsRoot, tools));
         }
 
         IEnumerator SituationLoop(Situation s, int i, Transform scr, Action<string> mode, Func<UIImage> bar, Func<UIText> time, Func<UIText> instr, Transform toolsRoot, List<PikiTool> tools)

@@ -45,55 +45,55 @@ namespace Piki
         AudioSource Src(bool loop, float vol) { var s = gameObject.AddComponent<AudioSource>(); s.loop = loop; s.volume = vol; s.playOnAwake = false; s.spatialBlend = 0; return s; }
 
         /* ------------------------------ API ------------------------------ */
-        public void Click() { sfx.PlayOneShot(cClick); }
-        public void Hover() { sfx.PlayOneShot(cHover); }
-        public void Correct() { sfx.PlayOneShot(cCorrect); }
-        public void Wrong() { sfx.PlayOneShot(cWrong); }
-        public void Soft() { sfx.PlayOneShot(cSoft); }
-        public void Good() { sfx.PlayOneShot(cGood); }
-        public void Bad() { sfx.PlayOneShot(cBad); }
-        public void Level() { sfx.PlayOneShot(cLevel); }
-        public void Beep(bool hi) { sfx.PlayOneShot(hi ? cBeepHi : cBeep); }
-        public void Whistle(bool longOne = false) { sfx.PlayOneShot(longOne ? cWhistleLong : cWhistle, .7f); }
-        public void Whoosh() { sfx.PlayOneShot(cWhoosh); }
+        public void Click() { if (sfx == null) return; sfx.PlayOneShot(cClick); }
+        public void Hover() { if (sfx == null) return; sfx.PlayOneShot(cHover); }
+        public void Correct() { if (sfx == null) return; sfx.PlayOneShot(cCorrect); }
+        public void Wrong() { if (sfx == null) return; sfx.PlayOneShot(cWrong); }
+        public void Soft() { if (sfx == null) return; sfx.PlayOneShot(cSoft); }
+        public void Good() { if (sfx == null) return; sfx.PlayOneShot(cGood); }
+        public void Bad() { if (sfx == null) return; sfx.PlayOneShot(cBad); }
+        public void Level() { if (sfx == null) return; sfx.PlayOneShot(cLevel); }
+        public void Beep(bool hi) { if (sfx == null) return; sfx.PlayOneShot(hi ? cBeepHi : cBeep); }
+        public void Whistle(bool longOne = false) { if (sfx == null) return; sfx.PlayOneShot(longOne ? cWhistleLong : cWhistle, .7f); }
+        public void Whoosh() { if (sfx == null) return; sfx.PlayOneShot(cWhoosh); }
         // Notas suaves mientras se aplica el tratamiento (suben con el progreso)
         AudioClip[] cTicks;
         public void ApplyTick(float k)
-        {
+        { if (sfx == null) return;
             if (cTicks == null) { float[] f = { 392f, 440f, 523.25f, 587.33f, 659.25f, 783.99f, 880f, 1046.5f }; cTicks = new AudioClip[f.Length]; for (int i = 0; i < f.Length; i++) cTicks[i] = Tone(.9f, f[i], f[i], Wave.Sine, .12f, 0, .04f); }
             sfx.PlayOneShot(cTicks[Mathf.Clamp(Mathf.FloorToInt(k * cTicks.Length), 0, cTicks.Length - 1)], .7f);
         }
-        public void Final() { sfx.PlayOneShot(cFinal, .9f); }
-        public void Breath(bool inhale) { sfx.PlayOneShot(inhale ? cInhale : cExhale, .9f); sfx.PlayOneShot(Tone(1.6f, inhale ? 392 : 329.63f, inhale ? 392 : 329.63f, Wave.Sine, .12f, 0, .3f), .6f); }
+        public void Final() { if (sfx == null) return; sfx.PlayOneShot(cFinal, .9f); }
+        public void Breath(bool inhale) { if (sfx == null) return; sfx.PlayOneShot(inhale ? cInhale : cExhale, .9f); sfx.PlayOneShot(Tone(1.6f, inhale ? 392 : 329.63f, inhale ? 392 : 329.63f, Wave.Sine, .12f, 0, .3f), .6f); }
 
         // Audios reales (Assets/PikiRecovery/Audio). Si no están, se usa el sonido sintetizado.
         public AudioClip crowdClip, musicClip, calmClip;
         // Si la escena tiene su propio AudioSource de fondo, el público y la música sintetizados no suenan
         public bool useSceneAudio;
-        public void CrowdStart(float level) { if (useSceneAudio) return; if (!crowd.isPlaying) { crowd.clip = crowdClip != null ? crowdClip : cCrowd; crowd.volume = 0; crowd.Play(); } FadeTo(crowd, level, 2.5f); }
-        public void CrowdLevel(float v, float t) { if (useSceneAudio) return; FadeTo(crowd, v, t); }
-        public void CrowdCheer() { if (useSceneAudio) return; StartCoroutine(Cheer()); }
+        public void CrowdStart(float level) { if (sfx == null) return; if (useSceneAudio) return; if (!crowd.isPlaying) { crowd.clip = crowdClip != null ? crowdClip : cCrowd; crowd.volume = 0; crowd.Play(); } FadeTo(crowd, level, 2.5f); }
+        public void CrowdLevel(float v, float t) { if (sfx == null) return; if (useSceneAudio) return; FadeTo(crowd, v, t); }
+        public void CrowdCheer() { if (sfx == null) return; if (useSceneAudio) return; StartCoroutine(Cheer()); }
         IEnumerator Cheer() { float b = crowd.volume; yield return Tw.Co(.5f, k => crowd.volume = Mathf.Lerp(b, Mathf.Min(1, b * 2.3f), k)); yield return new WaitForSeconds(1f); yield return Tw.Co(3f, k => crowd.volume = Mathf.Lerp(Mathf.Min(1, b * 2.3f), b, k)); }
-        public void CrowdStop(float t) { if (useSceneAudio) return; FadeTo(crowd, 0, t, true); }
+        public void CrowdStop(float t) { if (sfx == null) return; if (useSceneAudio) return; FadeTo(crowd, 0, t, true); }
 
         public void BeatStart(int level, float vol = .55f)
-        { if (useSceneAudio) return;
+        { if (sfx == null) return; if (useSceneAudio) return;
             var clip = musicClip != null ? musicClip : cBeat[level];
             if (!music.isPlaying || music.clip != clip) { music.clip = clip; music.volume = 0; music.pitch = 1; music.Play(); }
             if (musicClip != null) music.pitch = 1 + (level - 1) * .08f;
             FadeTo(music, vol, 1.2f);
         }
         public void BeatLevel(int level)
-        { if (useSceneAudio) return;
+        { if (sfx == null) return; if (useSceneAudio) return;
             if (!music.isPlaying) return;
             if (musicClip != null) { music.pitch = 1 + (level - 1) * .08f; return; } // la música real se acelera un poco
             float pos = music.time / music.clip.length; music.clip = cBeat[level]; music.time = pos * music.clip.length; music.Play();
         }
-        public void BeatStop(float t) { if (useSceneAudio) return; FadeTo(music, 0, t, true); }
+        public void BeatStop(float t) { if (sfx == null) return; if (useSceneAudio) return; FadeTo(music, 0, t, true); }
 
-        public void PadStart(float v) { if (useSceneAudio) return; if (!pad.isPlaying) { pad.clip = calmClip != null ? calmClip : cPad; pad.volume = 0; pad.Play(); } FadeTo(pad, v, 4); }
-        public void PadLevel(float v, float t) { if (useSceneAudio) return; FadeTo(pad, v, t); }
-        public void PadStop(float t) { if (useSceneAudio) return; FadeTo(pad, 0, t, true); }
+        public void PadStart(float v) { if (sfx == null) return; if (useSceneAudio) return; if (!pad.isPlaying) { pad.clip = calmClip != null ? calmClip : cPad; pad.volume = 0; pad.Play(); } FadeTo(pad, v, 4); }
+        public void PadLevel(float v, float t) { if (sfx == null) return; if (useSceneAudio) return; FadeTo(pad, v, t); }
+        public void PadStop(float t) { if (sfx == null) return; if (useSceneAudio) return; FadeTo(pad, 0, t, true); }
 
         public void SetMuted(bool m) { Muted = m; AudioListener.volume = m ? 0 : 1; }
 

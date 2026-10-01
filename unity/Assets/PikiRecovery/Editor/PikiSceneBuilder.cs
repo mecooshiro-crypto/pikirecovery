@@ -1,7 +1,7 @@
 // =====================================================================
 //  PIKI RECOVERY · Constructor de escenas (solo Editor)
 //  Menú: Piki Recovery ▸ Construir escenas
-//  Genera 5 escenas .unity con todo el contenido guardado y editable:
+//  Genera 5 escenas + 4 fundidos .unity con todo el contenido guardado y editable:
 //    00_Inicio     → hub de inicio + elección de deporte
 //    01_Cancha     → estadio al final del partido + etapa 1 (física)
 //    02_Vestuario  → vestuario + etapa 2 (nutrición)
@@ -37,6 +37,16 @@ namespace Piki.EditorTools
             new Def(Scenes.Vestuario, PikiGame.StartAt.Nutricion, "Musica_Vestuario.mp3", .5f),
             new Def(Scenes.Calma, PikiGame.StartAt.Calma, "Musica_Calma.mp3", .12f),   // bien bajo, de fondo
             new Def(Scenes.Partido, PikiGame.StartAt.Partido, "Publico_Estadio.mp3", .55f),
+        };
+
+        // Escenas de fundido: (escena, kicker, título, subtítulo, color, siguiente, segundos)
+        struct FadeDef { public string name, kicker, title, sub, next, color; public float hold; }
+        static readonly FadeDef[] Fades =
+        {
+            new FadeDef { name = Scenes.FCancha, kicker = "FÚTBOL", title = "Estadio Piki", sub = "Final del partido · Piki FC 2 – 1 Visitante", color = "#19e3b1", next = Scenes.Cancha, hold = 1.8f },
+            new FadeDef { name = Scenes.FVestuario, kicker = "ETAPA 2 DE 3", title = "Recuperación nutricional", sub = "Vestuario · Ventana de recuperación post-partido", color = "#ffd93d", next = Scenes.Vestuario, hold = 1.8f },
+            new FadeDef { name = Scenes.FCalma, kicker = "ETAPA 3 DE 3", title = "Vuelta a la calma", sub = "El estadio se vació. El ruido se apagó.", color = "#b388ff", next = Scenes.Calma, hold = 2.4f },
+            new FadeDef { name = Scenes.FPartido, kicker = "UNA SEMANA DESPUÉS", title = "Tu próximo partido", sub = "Así se nota en la cancha todo el trabajo invisible", color = "#19e3b1", next = Scenes.Partido, hold = 2f },
         };
 
         static string curDir; static int counter; static readonly List<Object> created = new List<Object>();
@@ -135,6 +145,18 @@ namespace Piki.EditorTools
                     EditorSceneManager.MarkSceneDirty(scene);
                     EditorSceneManager.SaveScene(scene, ScenesDir + "/" + d.name + ".unity");
                 }
+                // Escenas de fundido
+                foreach (var f in Fades)
+                {
+                    EditorUtility.DisplayProgressBar("Piki Recovery", "Construyendo " + f.name + "…", .95f);
+                    EnsureFolder(GenDir, f.name); curDir = GenDir + "/" + f.name; counter = 0; created.Clear();
+                    var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    Color c; ColorUtility.TryParseHtmlString(f.color, out c);
+                    PikiTransition.Bake(f.kicker, f.title, f.sub, c, f.next, f.hold);
+                    foreach (var o in created) if (o != null) EditorUtility.SetDirty(o);
+                    EditorSceneManager.MarkSceneDirty(scene);
+                    EditorSceneManager.SaveScene(scene, ScenesDir + "/" + f.name + ".unity");
+                }
                 AssetDatabase.SaveAssets();
                 AddToBuildSettings();
             }
@@ -144,7 +166,7 @@ namespace Piki.EditorTools
             }
             EditorSceneManager.OpenScene(ScenesDir + "/" + Scenes.Inicio + ".unity");
             EditorUtility.DisplayDialog("Piki Recovery",
-                "¡Listo! Se crearon las 5 escenas en Assets/PikiRecovery/Scenes y se agregaron a Build Settings.\n\nEstá abierta 00_Inicio: apretá Play para jugar desde el principio.",
+                "¡Listo! Se crearon las 5 escenas y los 4 fundidos en Assets/PikiRecovery/Scenes y se agregaron a Build Settings.\n\nEstá abierta 00_Inicio: apretá Play para jugar desde el principio.",
                 "OK");
         }
 
@@ -163,7 +185,13 @@ namespace Piki.EditorTools
         static void AddToBuildSettings()
         {
             var list = new List<EditorBuildSettingsScene>();
-            foreach (var d in Defs) list.Add(new EditorBuildSettingsScene(ScenesDir + "/" + d.name + ".unity", true));
+            // Orden: cada fundido va justo antes de su etapa
+            foreach (var d in Defs)
+            {
+                string f = Scenes.FadeFor(d.name);
+                if (f != null) list.Add(new EditorBuildSettingsScene(ScenesDir + "/" + f + ".unity", true));
+                list.Add(new EditorBuildSettingsScene(ScenesDir + "/" + d.name + ".unity", true));
+            }
             foreach (var s in EditorBuildSettings.scenes) if (!list.Exists(x => x.path == s.path)) list.Add(s);
             EditorBuildSettings.scenes = list.ToArray();
         }

@@ -19,6 +19,7 @@ escenas y guarda todo como assets.
 | `01_Cancha` | Estadio completo: césped con líneas, tribunas con público, techo, torres de luz, carteles LED, arcos con red, banderines, marcador, bancos, túnel, jugadores, pelota y botellas. Etapa 1 (física) |
 | `02_Vestuario` | Vestuario: piso y paredes de azulejos, 23 taquillas con camisetas numeradas, bancos, escudo, pizarra táctica, puerta y mesa de hidratación. Etapa 2 (nutrición) |
 | `03_Calma` | El mismo estadio, vacío y de noche, con estrellas. Etapa 3 (respiración) y resumen de la recuperación |
+| `F1…F4_Fundido_…` | Pantallas negras con el cartel entre etapas (FÚTBOL · Estadio Piki, ETAPA 2 DE 3, etc.). Los textos (objetos *Kicker*, *Título*, *Subtítulo*) y los tiempos (componente *Piki Transition*) se editan en la escena |
 | `04_Partido` | Tu próximo partido: jugás con el #10 y una barra muestra tu rendimiento según cómo te recuperaste |
 
 4. Abrí **`00_Inicio`** y apretá **▶ Play**. El juego pasa solo de una escena a la otra.
@@ -29,8 +30,10 @@ En cada escena, en la ventana *Hierarchy*, vas a encontrar:
   y los cambios se mantienen.
 * **PikiRig**: la cámara y el cursor para VR.
 * **Piki Recovery (juego)**: la lógica. En el Inspector podés elegir con qué etapa arranca (**Start At**).
-* **UI (vista previa…)**: te muestra dónde aparecen los paneles. Al dar Play se regenera, porque los textos
-  cambian en cada partida (situaciones al azar, resultados, etc.).
+* **Pantallas (vista previa…)**: todas las pantallas de esa etapa (paneles, holograma, herramientas, minijuego,
+  respiración, final), una por objeto. Activá cada una para verla en el editor. Al dar Play se regeneran con los
+  datos de la partida (situaciones al azar, resultados, etc.).
+* **Procesos (animaciones)**: el objeto que corre las animaciones durante el juego.
 
 Las texturas, materiales y mallas quedan guardados en `Assets/PikiRecovery/Generated`. Si reconstruís las escenas
 desde el menú, se reemplazan y se pierden los cambios que hayas hecho a mano.

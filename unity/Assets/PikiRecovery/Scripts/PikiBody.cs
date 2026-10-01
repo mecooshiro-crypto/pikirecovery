@@ -59,7 +59,7 @@ namespace Piki
             var r = Build.MeshObj("pulso", marker, Build.Wall(1, 1), mRing); r.AddComponent<Billboard>(); markerRing = r.transform;
             fxRoot = Build.Group("FX", marker);
             marker.gameObject.SetActive(false);
-            transform.localScale = Vector3.one * .001f; StartCoroutine(Tw.Co(.9f, k => transform.localScale = Vector3.one * Mathf.Max(.001f, k), Ease.Out));
+            if (!Application.isPlaying) return; transform.localScale = Vector3.one * .001f; StartCoroutine(Tw.Co(.9f, k => transform.localScale = Vector3.one * Mathf.Max(.001f, k), Ease.Out));
         }
         public Transform MarkerT { get { return marker; } }
         // Agranda el marcador cuando una herramienta está cerca
@@ -74,6 +74,7 @@ namespace Piki
         {
             spin = false; float from = figure.localEulerAngles.y, to = p.z > .03f ? 180 : 0;
             float delta = Mathf.DeltaAngle(from, to);
+            if (!Application.isPlaying) { figure.localEulerAngles = new Vector3(0, to, 0); return null; }
             return StartCoroutine(Tw.Co(.9f, k => figure.localEulerAngles = new Vector3(0, from + delta * k, 0)));
         }
         void Update()
