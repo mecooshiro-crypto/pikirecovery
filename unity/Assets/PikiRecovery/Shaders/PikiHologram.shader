@@ -1,4 +1,4 @@
-// PIKI RECOVERY · Holograma: nucleo oscuro + bordes brillantes (fresnel) + lineas de escaneo.
+// PIKI RECOVERY - Holograma: nucleo oscuro + bordes brillantes (fresnel) + lineas de escaneo.
 // Shader sin iluminacion: funciona en Built-in y en URP.
 Shader "Piki/Hologram"
 {
