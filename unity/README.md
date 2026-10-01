@@ -36,12 +36,12 @@ desde el menú, se reemplazan y se pierden los cambios que hayas hecho a mano.
 
 ## Cómo se juega
 
-| Dispositivo | Mirar en 360° | Elegir | Aplicar frío / calor / masaje | Respiración (mantener al inhalar) |
+| Dispositivo | Mirar en 360° | Elegir | Aplicar frío / calor / masaje | Respiración (seguir el camino) |
 |---|---|---|---|---|
-| Mac / PC (editor o build) | Arrastrar con el mouse o flechas | Clic | Mantener apretado sobre la herramienta y arrastrarla hasta la zona | Clic o **ESPACIO** |
-| Celular (Android / iOS) | Mover el teléfono (giroscopio) o arrastrar | Tocar | Apoyar el dedo en la herramienta y arrastrarla | Dedo apoyado |
-| VR con controles (Meta Quest, OpenXR) | Girar la cabeza | Láser + **gatillo** | Apuntar, mantener el gatillo y llevarla | Gatillo |
-| VR solo mirada | Girar la cabeza | Mirar fijo 1,4 s el botón | Mirar la herramienta para agarrarla y después mirar la zona | Modo guiado |
+| Mac / PC (editor o build) | Arrastrar con el mouse o flechas | Clic | Mantener apretado sobre la herramienta y arrastrarla hasta la zona | Mover el mouse sin hacer clic |
+| Celular (Android / iOS) | Mover el teléfono (giroscopio) o arrastrar | Tocar | Apoyar el dedo en la herramienta y arrastrarla | Deslizar el dedo o mover el teléfono |
+| VR con controles (Meta Quest, OpenXR) | Girar la cabeza | Láser + **gatillo** | Apuntar, mantener el gatillo y llevarla | Apuntar con el control |
+| VR solo mirada | Girar la cabeza | Mirar fijo 1,4 s el botón | Mirar la herramienta para agarrarla y después mirar la zona | Mover la mirada |
 
 Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 
@@ -59,8 +59,9 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
    - Barras de **Energía, Hidratación y Reparación**, con zona óptima entre 60 y 90 %.
    - Hay alimentos no prioritarios.
    - Tiene 3 niveles: más velocidad, más elementos y música más rápida.
-5. **Etapa 3, vuelta a la calma**: estadio vacío de noche, con estrellas. La esfera luminosa marca
-   **INHALÁ** (4 s) y **EXHALÁ** (6 s) durante 6 ciclos, y la frecuencia cardíaca baja.
+5. **Etapa 3, vuelta a la calma**: estadio vacío de noche, con estrellas. Un camino luminoso sube al **INHALAR** (4 s) y baja al
+   **EXHALAR** (6 s): hay que seguirlo con el puntero durante 6 ciclos. Si te salís, la cámara tiembla como si te
+   agitaras y sube el pulso.
 6. **Final**: la cancha amanece en calma y aparece **RECUPERACIÓN COMPLETADA**, con el resumen de las 3 etapas.
 
 ## Publicar en cada plataforma (*File → Build Profiles*)

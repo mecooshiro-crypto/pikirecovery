@@ -68,6 +68,8 @@ namespace Piki
         public float FuseTime = 1.4f;
         public System.Action onMute, onRecenter;
         public PikiTool Held { get; private set; }
+        public Ray PointerRay { get; private set; }
+        public float Shake; // 0..1 · temblor de cámara (respiración agitada)
         public bool GazeMode { get; private set; }
         bool sticky;
         public void ForceRelease() { if (Held != null) { var t = Held; Held = null; sticky = false; t.Release(); } }
@@ -130,7 +132,14 @@ namespace Piki
         public void ResetView() { yaw = 0; pitch = 0; gyroRefSet = false; if (!XR && Head != null) Head.localRotation = Quaternion.identity; }
         public void PlaceAt(Vector3 pos, float yawDeg = 0) { transform.position = pos; transform.rotation = Quaternion.Euler(0, yawDeg, 0); ResetView(); }
 
-        void OnBeforeRender() { if (XR) ApplyHeadPose(); }
+        void OnBeforeRender() { if (XR) { ApplyHeadPose(); ApplyShake(); } }
+        void ApplyShake()
+        {
+            if (Shake <= .001f) { if (!XR) Cam.transform.localPosition = Vector3.zero; Cam.transform.localRotation = Quaternion.identity; return; }
+            float t = Time.time * 13f, k = XR ? Shake * .25f : Shake; // en VR, temblor muy suave para no marear
+            Cam.transform.localRotation = Quaternion.Euler((Mathf.PerlinNoise(t, 0) - .5f) * 3f * k, (Mathf.PerlinNoise(0, t) - .5f) * 3f * k, (Mathf.PerlinNoise(t, t) - .5f) * 1.5f * k);
+            Cam.transform.localPosition = new Vector3(Mathf.PerlinNoise(t * .7f, 3) - .5f, Mathf.PerlinNoise(5, t * .7f) - .5f, 0) * .02f * k;
+        }
         void ApplyHeadPose()
         {
             var d = UXR.InputDevices.GetDeviceAtXRNode(UXR.XRNode.CenterEye); if (!d.isValid) d = UXR.InputDevices.GetDeviceAtXRNode(UXR.XRNode.Head);
@@ -169,6 +178,7 @@ namespace Piki
                 }
                 else Head.localRotation = Quaternion.Euler(pitch, yaw, 0);
             }
+            ApplyShake();
 
             // ---- mantener presionado (respiración) ----
             bool trig = TriggerHeld();
@@ -186,6 +196,7 @@ namespace Piki
             }
             else if (XR || gyro && !pointerHeld && !PIn.TouchUp) { ray = new Ray(Cam.transform.position, Cam.transform.forward); gazeMode = XR; clickNow = trig && !trigPrev; }
             else { ray = Cam.ScreenPointToRay(pos); clickNow = (PIn.MouseUp || PIn.TouchUp) && pressing && dragDist < 14; }
+            PointerRay = ray;
             bool pressNow = PIn.MouseDown || PIn.TouchDown || (trig && !trigPrev);
             bool releaseNow = PIn.MouseUp || PIn.TouchUp || (!trig && trigPrev);
             trigPrev = trig;

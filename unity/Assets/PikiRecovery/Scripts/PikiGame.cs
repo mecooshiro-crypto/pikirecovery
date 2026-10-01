@@ -746,86 +746,129 @@ namespace Piki
             UI.T(p, "ETAPA 3 DE 3", 52, 62, 19, Pal.Purple, true); UI.Stepper(p, W - 410, 58, 370, 2, Pal.Purple);
             UI.T(p, "Vuelta a la calma", 52, 146, 54, Color.white, true);
             UI.Wrap(p, "El movimiento baja, la música baja. Volviste a la cancha, pero ahora está en silencio. Tu sistema nervioso también necesita recuperarse.", 52, 196, W - 104, 33, 23, Pal.Body);
-            UI.T(p, "Seguí el ritmo de la esfera luminosa:", 52, 300, 24, Color.white, true);
-            UI.T(p, "INHALÁ", 52, 350, 28, Pal.Teal, true); UI.T(p, "cuando la esfera crece (4 s)", 180, 350, 22, Pal.Text, true);
-            UI.T(p, "EXHALÁ", 52, 390, 28, Pal.Purple, true); UI.T(p, "cuando la esfera se achica (6 s)", 180, 390, 22, Pal.Text, true);
-            UI.Wrap(p, "PC: mantené presionado clic o ESPACIO mientras inhalás y soltá al exhalar. Celular: mantené el dedo apoyado. VR: mantené el gatillo. Solo con la mirada: respirá con la esfera.", 52, 448, W - 104, 28, 19, Pal.Muted);
+            UI.T(p, "Seguí el camino luminoso con tu puntero:", 52, 300, 24, Color.white, true);
+            UI.T(p, "INHALÁ", 52, 350, 28, Pal.Teal, true); UI.T(p, "el camino sube: llevá el punto hacia arriba (4 s)", 180, 350, 22, Pal.Text, true);
+            UI.T(p, "EXHALÁ", 52, 390, 28, Pal.Purple, true); UI.T(p, "el camino baja: llevá el punto hacia abajo (6 s)", 180, 390, 22, Pal.Text, true);
+            UI.Wrap(p, "PC: mové el mouse (sin hacer clic). Celular: deslizá el dedo o mové el teléfono. VR: apuntá con el control o con la mirada. Si te salís del camino, tu respiración se agita y la vista tiembla.", 52, 448, W - 104, 28, 19, Pal.Muted);
             UI.T(p, "6 ciclos · 1 minuto", 52, H - 34, 19, Pal.Purple, true);
             var b = Btn("COMENZAR RESPIRACIÓN", new Vector3(0, .92f, 2.72f), 1.2f, .22f, UI.Style.Primary, () => StartCoroutine(Breathing()));
             UI.Appear(p); UI.Appear(b, .3f);
         }
+        // Curva de respiración: sube al inhalar (4 s) y baja al exhalar (6 s)
+        const float IN = 4, OUT = 6;
+        static float BreathCurve(float t)
+        {
+            if (t < 0) return 0;
+            float ph = t % (IN + OUT);
+            return ph < IN ? Ease.Sine(ph / IN) : 1 - Ease.Sine((ph - IN) / OUT);
+        }
+
         IEnumerator Breathing()
         {
             var scr = NewScreen();
-            Hint("INHALÁ cuando la esfera crece · EXHALÁ cuando se achica · Mantené clic / ESPACIO / gatillo mientras inhalás");
-            const float IN = 4, OUT = 6; const int CYCLES = 6; float TOTAL = (IN + OUT) * CYCLES;
-            // Esfera luminosa
-            var orb = Build.Group("Esfera", scr, new Vector3(0, 1.55f, 2.9f));
-            var coreM = Mat.Unlit(new Color(.62f, .94f, 1f, .95f), null, 3050); var shellM = Mat.Unlit(new Color(.1f, .89f, .69f, .16f), null, 3040);
-            Build.Prim(PrimitiveType.Sphere, orb, Vector3.zero, Vector3.one * 2, coreM);
-            Build.Prim(PrimitiveType.Sphere, orb, Vector3.zero, Vector3.one * 2.7f, shellM);
-            var glow = Build.Glow(orb, Vector3.zero, 5.5f, Pal.A(Pal.Teal, .8f)); var glowM = glow.GetComponent<Renderer>().sharedMaterial;
-            var halo = Build.Glow(orb, Vector3.zero, 14, Pal.A(Pal.Purple, .25f)); var haloM = halo.GetComponent<Renderer>().sharedMaterial;
-            var dots = Build.Particles(orb, Vector3.zero, new Color(.81f, .91f, 1f, .8f), .07f, 200);
-            var dm = dots.main; dm.startLifetime = 100000f; dm.startSize = new ParticleSystem.MinMaxCurve(.03f, .07f); dots.Play(); dots.Emit(160);
-            var parts = new ParticleSystem.Particle[200]; int np = dots.GetParticles(parts);
-            var pd = new Vector3[np]; for (int i = 0; i < np; i++) pd[i] = new Vector3(Random.Range(0f, Mathf.PI * 2), Mathf.Acos(Random.Range(-1f, 1f)), Random.Range(1.4f, 2.2f));
-            orb.localScale = Vector3.one * .001f;
+            Hint("Seguí el camino con el puntero: sube al INHALAR y baja al EXHALAR · Si te salís, te agitás");
+            const int CYCLES = 6; float TOTAL = (IN + OUT) * CYCLES;
+            // ---- Pista del camino ----
+            const float TW = 2.4f, TH = 1.0f, PAST = 1.5f, FUTURE = 4.5f, YR = .36f, TOL = .085f;
+            var track = UI.Canvas(scr, new Vector3(0, 1.5f, 2.6f), TW, TH, Vector3.zero, "Camino de respiración");
+            float PW = UI.Wd(track), PH = UI.Ht(track);
+            UI.Framed(track, 0, 0, PW, PH, new Color(.02f, .04f, .1f, .82f), Pal.A(Pal.Purple, .55f), 30, 3);
+            for (int g = 1; g < 6; g++) UI.Img(track, 20, PH * g / 6, PW - 40, 1.5f, null, new Color(1, 1, 1, .05f));
+            UI.T(track, "INHALÁ ↑", 24, 40, 18, Pal.A(Pal.Teal, .8f), true);
+            UI.T(track, "EXHALÁ ↓", 24, PH - 18, 18, Pal.A(Pal.Purple, .8f), true);
+            float xPlay = -TW / 2 + PAST / (PAST + FUTURE) * TW;                       // posición del "ahora"
+            UI.Img(track, (xPlay + TW / 2) / UI.S - 1, 12, 2, PH - 24, null, new Color(1, 1, 1, .22f));
+            // Línea del camino (pasado tenue, futuro brillante)
+            var lineGo = new GameObject("Camino"); lineGo.transform.SetParent(track.transform, false); lineGo.transform.localScale = Vector3.one / UI.S;
+            var line = lineGo.AddComponent<LineRenderer>(); line.useWorldSpace = false; line.positionCount = 90; line.widthMultiplier = .022f;
+            line.sharedMaterial = Mat.Unlit(Color.white, null, 3000); line.sortingOrder = 2000; line.numCapVertices = 4;
+            var grad = new Gradient(); grad.SetKeys(new[] { new GradientColorKey(Pal.Purple, 0), new GradientColorKey(Pal.Teal, PAST / (PAST + FUTURE)), new GradientColorKey(Pal.Teal, 1) },
+                new[] { new GradientAlphaKey(.25f, 0), new GradientAlphaKey(.9f, PAST / (PAST + FUTURE)), new GradientAlphaKey(.55f, 1) });
+            line.colorGradient = grad;
+            // Objetivo (anillo) y punto del usuario
+            var target = Build.MeshObj("Objetivo", lineGo.transform, Build.Wall(1, 1), Mat.Unlit(Pal.A(Pal.Teal, .9f), Spr.Ring.texture, 3001)); target.transform.localScale = Vector3.one * .11f;
+            var tGlow = Build.Glow(lineGo.transform, Vector3.zero, .35f, Pal.A(Pal.Teal, .5f), false); tGlow.GetComponent<Renderer>().sharedMaterial.renderQueue = 3001;
+            var me = Build.MeshObj("Tu respiración", lineGo.transform, Build.Wall(1, 1), Mat.Unlit(Color.white, Spr.Circle.texture, 3002)); me.transform.localScale = Vector3.one * .06f;
+            var meMat = me.GetComponent<Renderer>().sharedMaterial;
+            foreach (var r in new[] { target.GetComponent<Renderer>(), tGlow.GetComponent<Renderer>(), me.GetComponent<Renderer>() }) r.sortingOrder = 2001;
+            var pts = new Vector3[90];
 
-            var lab = UI.Canvas(scr, new Vector3(0, 2.5f, 2.9f), 1.8f, .42f, Vector3.zero, "Fase");
+            var lab = UI.Canvas(scr, new Vector3(0, 2.32f, 2.6f), 1.8f, .42f, Vector3.zero, "Fase");
             var tWord = UI.T(lab, "PREPARATE", UI.Wd(lab) / 2, 104, 92, Color.white, true, UI.Al.C, UI.Wd(lab));
-            var tSec = UI.T(lab, "", UI.Wd(lab) / 2, 158, 26, Pal.Muted, true, UI.Al.C, UI.Wd(lab));
-            var info = UI.Canvas(scr, new Vector3(0, .72f, 2.8f), 2.4f, .34f, new Vector3(12, 0, 0), "Info"); float IW = UI.Wd(info), IH = UI.Ht(info);
+            var tSec = UI.T(lab, "Mové el puntero hasta el anillo", UI.Wd(lab) / 2, 158, 26, Pal.Muted, true, UI.Al.C, UI.Wd(lab));
+            var info = UI.Canvas(scr, new Vector3(0, .78f, 2.6f), 2.4f, .34f, new Vector3(12, 0, 0), "Info"); float IW = UI.Wd(info), IH = UI.Ht(info);
             UI.Framed(info, 6, 6, IW - 12, IH - 12, new Color(.02f, .04f, .09f, .75f), Pal.A(Pal.Purple, .5f), (IH - 12) / 2, 2);
             var cdots = new UIImage[CYCLES]; for (int i = 0; i < CYCLES; i++) cdots[i] = UI.Icon(info, Spr.Circle, 70 + i * 34, IH / 2, 10, new Color(1, 1, 1, .15f));
             var tCycle = UI.T(info, "Ciclo 1 de 6", 70 + CYCLES * 34 + 10, IH / 2 + 9, 25, Color.white, true);
-            var tSync = UI.T(info, "Modo guiado", IW * .6f, IH / 2 + 9, 25, Pal.Teal, true, UI.Al.C, 360);
+            var tSync = UI.T(info, "En el camino —", IW * .6f, IH / 2 + 9, 25, Pal.Teal, true, UI.Al.C, 360);
             UI.Icon(info, Spr.Heart, IW - 190, IH / 2, 16, Pal.Red); var tHr = UI.T(info, "104 lpm", IW - 162, IH / 2 + 9, 25, Color.white, true);
-            UI.Appear(lab); UI.Appear(info, .2f);
-            yield return Tw.Co(1.5f, k => orb.localScale = Vector3.one * Mathf.Max(.001f, .32f * k), Ease.Out);
-            tSec.text = "Soltá los hombros · Apoyá bien los pies"; yield return new WaitForSeconds(2.2f);
-            if (scr == null) yield break;
+            UI.Appear(track); UI.Appear(lab, .1f); UI.Appear(info, .2f);
 
-            rig.HoldUsed = false; float T = 0, hr = 104; int samples = 0, matched = 0; string phase = ""; float infoT = 0;
-            Color c1 = new Color(.62f, .94f, 1f, .95f), c2 = new Color(.85f, .77f, 1f, .95f), g1 = Pal.Teal, g2 = Pal.Purple;
+            float yUser = -YR, T = -3f, hr = 104, shake = 0, infoT = 0; int samples = 0, onPath = 0; string phase = "";
+            Func<float, float> Y = tt => -YR + BreathCurve(tt) * 2 * YR;
+            Action draw = () =>
+            {
+                for (int k = 0; k < pts.Length; k++)
+                {
+                    float u = (float)k / (pts.Length - 1), tt = T - PAST + u * (PAST + FUTURE);
+                    pts[k] = new Vector3(-TW / 2 + u * TW, Y(tt), -.01f);
+                }
+                line.SetPositions(pts);
+                float yt = Y(T); target.transform.localPosition = new Vector3(xPlay, yt, -.015f); tGlow.transform.localPosition = new Vector3(xPlay, yt, -.012f);
+                me.transform.localPosition = new Vector3(xPlay, yUser, -.02f);
+            };
+            Action readPointer = () =>
+            {
+                var ray = rig.PointerRay; var plane = new Plane(-lineGo.transform.forward, lineGo.transform.position); float d;
+                if (plane.Raycast(ray, out d)) { var lp = lineGo.transform.InverseTransformPoint(ray.GetPoint(d)); yUser = Mathf.Lerp(yUser, Mathf.Clamp(lp.y, -YR - .1f, YR + .1f), 1 - Mathf.Exp(-Time.deltaTime * 18)); }
+            };
             au.PadLevel(.32f, 60);
+            // Cuenta previa de 3 s para ubicar el puntero
+            while (T < 0)
+            {
+                T += Time.deltaTime; readPointer(); draw();
+                tSec.text = "Ubicá tu punto en el anillo · empieza en " + Mathf.CeilToInt(-T);
+                if (scr == null) yield break; yield return null;
+            }
             while (T < TOTAL)
             {
                 T += Time.deltaTime; float t = Mathf.Min(T, TOTAL);
                 int cyc = Mathf.Min(CYCLES - 1, Mathf.FloorToInt(t / (IN + OUT))); float ph = t - cyc * (IN + OUT); bool inhale = ph < IN;
                 string key = cyc + (inhale ? "i" : "e");
                 if (key != phase) { phase = key; au.Breath(inhale); rig.Haptic(); }
-                float k = inhale ? Ease.Sine(ph / IN) : 1 - Ease.Sine((ph - IN) / OUT);
-                orb.localScale = Vector3.one * Mathf.Lerp(.32f, .74f, k);
-                coreM.color = Color.Lerp(c2, c1, k); Color g = Color.Lerp(g2, g1, k); shellM.color = Pal.A(g, .16f); glowM.color = Pal.A(g, .8f);
-                glow.transform.localScale = Vector3.one * (5.2f + k * 2.4f); haloM.color = Pal.A(Pal.Purple, .15f + k * .2f);
-                float spread = inhale ? Mathf.Lerp(1.25f, 1f, ph / IN) : Mathf.Lerp(1f, 1.25f, (ph - IN) / OUT);
-                for (int i = 0; i < np; i++) { pd[i].x += Time.deltaTime * .25f; float r = pd[i].z * spread; parts[i].position = new Vector3(Mathf.Sin(pd[i].y) * Mathf.Cos(pd[i].x), Mathf.Cos(pd[i].y), Mathf.Sin(pd[i].y) * Mathf.Sin(pd[i].x)) * r; }
-                dots.SetParticles(parts, np);
-                float since = inhale ? ph : ph - IN; if (since > .6f) { samples++; if (rig.Holding == inhale) matched++; }
-                hr = Mathf.Lerp(104, 64, Ease.Out(t / TOTAL)) + Mathf.Sin(Time.time * 1.3f) * 1.2f;
+                readPointer(); draw();
+                float err = Mathf.Abs(yUser - Y(T));
+                samples++; if (err < TOL) onPath++;
+                // Fuera del camino: la cámara tiembla como si te agitaras
+                float want = Mathf.Clamp01((err - TOL) / .22f);
+                shake = Mathf.Lerp(shake, want, 1 - Mathf.Exp(-Time.deltaTime * (want > shake ? 6 : 2.5f)));
+                rig.Shake = shake;
+                meMat.color = Color.Lerp(Color.white, Pal.Orange, shake);
+                hr = Mathf.Lerp(104, 64, Ease.Out(t / TOTAL)) + shake * 18 + Mathf.Sin(Time.time * 1.3f) * 1.2f;
                 infoT -= Time.deltaTime;
                 if (infoT <= 0)
                 {
                     infoT = .12f; int secs = Mathf.CeilToInt(inhale ? IN - ph : IN + OUT - ph);
-                    tWord.text = inhale ? "INHALÁ" : "EXHALÁ"; tWord.color = inhale ? Pal.Teal : Pal.Purple; tSec.text = secs.ToString();
+                    tWord.text = inhale ? "INHALÁ ↑" : "EXHALÁ ↓"; tWord.color = inhale ? Pal.Teal : Pal.Purple;
+                    tSec.text = shake > .35f ? "Volvé al camino… respirá tranquilo" : secs.ToString();
+                    tSec.color = shake > .35f ? Pal.Orange : Pal.Muted;
                     for (int i = 0; i < CYCLES; i++) cdots[i].color = i < cyc ? Pal.Purple : i == cyc ? Pal.A(Pal.Purple, .45f) : new Color(1, 1, 1, .15f);
                     tCycle.text = "Ciclo " + (cyc + 1) + " de " + CYCLES;
-                    tSync.text = rig.HoldUsed && samples > 0 ? "Sincronía " + Mathf.RoundToInt(matched * 100f / samples) + "%" : "Modo guiado";
+                    tSync.text = "En el camino " + Mathf.RoundToInt(onPath * 100f / Mathf.Max(1, samples)) + "%";
                     tHr.text = Mathf.RoundToInt(hr) + " lpm";
                 }
                 env.ApplyLight(LightP.Lerp(PikiEnv.LCalm, PikiEnv.LCalmDeep, t / TOTAL), false);
-                if (scr == null) yield break;
+                if (scr == null) { rig.Shake = 0; yield break; }
                 yield return null;
             }
-            calm = new CalmRes { cycles = CYCLES, guided = !rig.HoldUsed, sync = samples > 0 ? Mathf.RoundToInt(matched * 100f / samples) : 0, hr = Mathf.RoundToInt(hr) };
+            rig.Shake = 0;
+            calm = new CalmRes { cycles = CYCLES, guided = false, sync = Mathf.RoundToInt(onPath * 100f / Mathf.Max(1, samples)), hr = Mathf.RoundToInt(hr) };
             for (int i = 0; i < CYCLES; i++) cdots[i].color = Pal.Purple;
-            tSync.text = calm.guided ? "Modo guiado" : "Sincronía " + calm.sync + "%";
-            tWord.text = "MUY BIEN"; tWord.color = Color.white; tSec.text = "Tu respiración y tu pulso volvieron a la calma";
-            float s0 = orb.localScale.x;
-            yield return Tw.Co(2.2f, k => { orb.localScale = Vector3.one * Mathf.Lerp(s0, .001f, k); orb.localPosition = new Vector3(0, 1.55f + k * .6f, 2.9f); }, Ease.In);
-            yield return new WaitForSeconds(.8f);
-            UI.Vanish(lab, .8f); UI.Vanish(info, .8f);
+            tSync.text = "En el camino " + calm.sync + "%";
+            tWord.text = "MUY BIEN"; tWord.color = Color.white; tSec.text = "Tu respiración y tu pulso volvieron a la calma"; tSec.color = Pal.Muted;
+            yield return new WaitForSeconds(1.6f);
+            UI.Vanish(track, .8f); UI.Vanish(lab, .8f); UI.Vanish(info, .8f);
+            yield return new WaitForSeconds(1f);
             // El entorno vuelve de a poco a la cancha, ahora completamente tranquila
             Hint("");
             var skyFrom = env.SkyNow; var lightFrom = env.LightNow;
@@ -848,7 +891,7 @@ namespace Piki
             {
                 new { n = "Recuperación física", d = S.Count + " situaciones resueltas · " + firstTry + "/3 a la primera · " + treats, c = Pal.Red },
                 new { n = "Recuperación nutricional", d = "Equilibrio " + N.score + "% · " + N.stars + "/3 estrellas · " + N.good + " elecciones prioritarias", c = Pal.Yellow },
-                new { n = "Vuelta a la calma", d = K.cycles + " ciclos de respiración · " + (K.guided ? "modo guiado" : "sincronía " + K.sync + "%") + " · FC " + K.hr + " lpm", c = Pal.Purple },
+                new { n = "Vuelta a la calma", d = K.cycles + " ciclos de respiración · " + K.sync + "% en el camino" + " · FC " + K.hr + " lpm", c = Pal.Purple },
             };
             var p = Panel(new Vector3(0, 1.9f, 2.85f), 2.7f, 1.78f, Pal.Green); float W = UI.Wd(p), H = UI.Ht(p);
             UI.T(p, "PIKI RECOVERY · FÚTBOL", 56, 64, 19, Pal.Green, true); UI.Stepper(p, W - 420, 60, 380, 3, Pal.Green);
