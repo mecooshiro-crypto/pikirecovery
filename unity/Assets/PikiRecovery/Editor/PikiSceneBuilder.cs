@@ -113,6 +113,9 @@ namespace Piki.EditorTools
                     PikiSession.match = null;
                     var go = new GameObject("Piki Recovery (juego)");
                     var game = go.AddComponent<PikiGame>(); game.startAt = d.start;
+                    game.crowdClip = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/Publico_Estadio.mp3");
+                    game.musicClip = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/Musica_Vestuario.mp3");
+                    game.calmClip = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/Musica_Calma.mp3");
                     game.Bake(false, true);
 
                     foreach (var o in created) if (o != null) EditorUtility.SetDirty(o);

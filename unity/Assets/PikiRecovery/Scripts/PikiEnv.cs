@@ -216,7 +216,7 @@ namespace Piki
                     }
                 }
             }
-            var t = px.ToTex(true, TextureWrapMode.Clamp); t.wrapModeU = TextureWrapMode.Repeat; return t;
+            return px.ToTex(true, TextureWrapMode.Repeat); // se repite a lo largo de la tribuna
         }
         struct Path2 { public Vector2[] p, n; }
         static Path2 Superellipse(float a, float b, float nExp, int N)

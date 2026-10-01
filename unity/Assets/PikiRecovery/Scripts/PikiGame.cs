@@ -37,6 +37,10 @@ namespace Piki
     {
         public enum StartAt { Inicio, Deporte, Cancha, Fisica, Situacion, Nutricion, Minijuego, Calma, Respiracion, Final, Partido }
         [Tooltip("Etapa con la que arranca esta escena")] public StartAt startAt = StartAt.Inicio;
+        [Header("Audio (opcional)")]
+        [Tooltip("Público del estadio (escenas 01 y 04)")] public AudioClip crowdClip;
+        [Tooltip("Música del vestuario y del minijuego (escena 02)")] public AudioClip musicClip;
+        [Tooltip("Música de la vuelta a la calma (escena 03)")] public AudioClip calmClip;
 
         // Referencias guardadas en la escena por el constructor (menú Piki Recovery)
         [SerializeField] PikiRig rig; [SerializeField] PikiEnv env;
@@ -98,6 +102,7 @@ namespace Piki
                 Bake(true, false);
             }
             au = gameObject.AddComponent<PikiAudio>();
+            au.crowdClip = crowdClip; au.musicClip = musicClip; au.calmClip = calmClip;
             rig.onMute = () => au.SetMuted(!au.Muted);
             rig.onRecenter = Recenter;
             fadeM = fadeR.sharedMaterial != null ? new Material(fadeR.sharedMaterial) : Mat.Unlit(Color.black, null, 4000); fadeR.sharedMaterial = fadeM;
@@ -114,6 +119,7 @@ namespace Piki
             var st = startAt;
             env.Set(EnvFor(st), ModeFor(st)); NewStage();
             if (st == StartAt.Cancha) au.CrowdStart(.42f);
+            if (st == StartAt.Nutricion && musicClip != null) au.BeatStart(1, .22f); // música suave en el vestuario
             if (st == StartAt.Fisica || st == StartAt.Situacion) au.CrowdStart(.22f);
             if (st == StartAt.Calma || st == StartAt.Respiracion || st == StartAt.Final) au.PadStart(.55f);
             // Cartel de transición que viene de la escena anterior
@@ -974,7 +980,7 @@ namespace Piki
 
         IEnumerator NextMatch()
         {
-            var scr = NewScreen();
+            NewScreen();
             int perf = Performance(), sub = SubMinute(perf); int home = perf >= 75 ? 2 : perf >= 50 ? 1 : 0, away = perf >= 55 ? 0 : 1;
             Hint("Mirá a tu alrededor: estás jugando el próximo partido");
             // Jugadores en juego y "vos" con la pelota
@@ -988,6 +994,7 @@ namespace Piki
             UI.T(tag, "VOS · #10", UI.Wd(tag) / 2, 54, 40, Pal.Teal, true, UI.Al.C, UI.Wd(tag));
             tag.gameObject.AddComponent<Billboard>();
             au.Whistle(true);
+            ShowNextMatchPanel(perf, true); // el cartel de rendimiento aparece de una; el partido sigue de fondo
             // Reloj del partido acelerado
             float minute = 0; int shownMin = -1; bool goalShown = false;
             while (minute < sub)
@@ -1000,8 +1007,8 @@ namespace Piki
                     if (h > 0 && !goalShown && m >= 30) { goalShown = true; au.CrowdCheer(); }
                     env.NextMatchBoard(m, h, away > 0 && m >= 50 ? 1 : 0, "Piki FC con el #10 en cancha");
                 }
+                if (this == null || ballT == null) yield break;
                 ballT.Rotate(360 * Time.deltaTime, 0, 0, Space.Self);
-                if (scr == null) yield break;
                 yield return null;
             }
             if (sub < 90)
@@ -1009,10 +1016,8 @@ namespace Piki
                 au.Whistle(); env.NextMatchBoard(sub, home > 0 && sub >= 30 ? 1 : 0, away > 0 && sub >= 50 ? 1 : 0, "CAMBIO · sale el #10");
                 Destroy(ballT.gameObject);
                 you.GoTo(new Vector3(-38.5f, 0, -9), 1.2f, false);
-                yield return new WaitForSeconds(3f);
             }
-            else { au.Whistle(); env.NextMatchBoard(90, home, away, "FINAL · el #10 jugó los 90 minutos"); au.CrowdCheer(); yield return new WaitForSeconds(2f); }
-            ShowNextMatchPanel(perf, true);
+            else { au.Whistle(); env.NextMatchBoard(90, home, away, "FINAL · el #10 jugó los 90 minutos"); au.CrowdCheer(); }
         }
 
         void ShowNextMatchPanel(int perf, bool animate)
