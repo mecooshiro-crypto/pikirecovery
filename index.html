@@ -46,9 +46,13 @@
   #loader .ring { width:54px; height:54px; border-radius:50%; border:4px solid rgba(34,240,191,.2); border-top-color:var(--teal); animation:spin 1s linear infinite; }
   #loader h1 { margin:0; font-weight:900; letter-spacing:.12em; font-size:22px; }
   #loader p { margin:0; color:var(--muted); font-size:13px; }
+  #caption { position:absolute; left:50%; bottom:72px; transform:translateX(-50%); max-width:min(92vw,640px); text-align:center; color:#ffd93d;
+             font-size:14px; font-weight:700; background:rgba(0,0,0,.84); padding:6px 14px; border-radius:999px; opacity:0; transition:opacity .3s; }
+  body.big #hint { font-size:16px; } body.big #caption { font-size:17px; } body.big #brand { font-size:15px; }
+  body.hc #hint { background:#000; border-color:#fff; }
   @keyframes spin { to { transform:rotate(360deg); } }
   .a-enter-vr-button, .a-enter-ar-button { z-index:15; }
-  @media (max-width:600px){ #hint{ font-size:11px; bottom:78px; } #brand small{ display:none; } }
+  @media (max-width:600px){ #hint{ font-size:11px; bottom:78px; } #caption{ bottom:130px; font-size:12px; } #brand small{ display:none; } }
 </style>
 </head>
 <body>
@@ -56,6 +60,7 @@
 <div id="hud">
   <div id="brand"><img class="iso" src="assets/marca/piki-isotipo-blanco.svg" alt=""><div>PIKI GAME<small>Fútbol · Recuperar también es entrenar.</small></div></div>
   <div id="controls"><button id="btnMute" title="Silenciar (M)">🔊 Sonido</button><button id="btnRecenter" title="Recentrar (R)">⟲ Recentrar</button></div>
+  <div id="caption" aria-live="polite"></div>
   <div id="hint">Arrastrá para mirar en 360° · Clic para seleccionar</div>
 </div>
 
@@ -188,19 +193,21 @@ function wrap(ctx, text, x, y, maxW, lh, o = {}) {
   return y;
 }
 function circle(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); }
-function panelBg(ctx, W, H, accent = C.teal, alpha = .9) {
+function panelBg(ctx, W, H, accent = C.teal, alpha = .95) {
   const p = 4, r = 34;
   ctx.save();
   rr(ctx, p, p, W - 2 * p, H - 2 * p, r);
   const g = ctx.createLinearGradient(0, 0, W * .4, H);
-  g.addColorStop(0, `rgba(0,62,74,${alpha})`); g.addColorStop(1, `rgba(0,34,42,${alpha})`); // petróleo (Manual de marca)
+  const hc = Access.get('highContrast');
+  if (hc) { g.addColorStop(0, '#002229'); g.addColorStop(1, '#00161b'); }
+  else { g.addColorStop(0, `rgba(0,62,74,${alpha})`); g.addColorStop(1, `rgba(0,34,42,${alpha})`); } // petróleo (Manual de marca)
   ctx.fillStyle = g; ctx.fill(); ctx.clip();
   const gg = ctx.createRadialGradient(W * .12, 0, 0, W * .12, 0, W * .7);
   gg.addColorStop(0, hexA(accent, .2)); gg.addColorStop(1, hexA(accent, 0));
   ctx.fillStyle = gg; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = accent; ctx.fillRect(0, 0, W, 7);
   ctx.restore();
-  rr(ctx, p, p, W - 2 * p, H - 2 * p, r); ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.stroke();
+  rr(ctx, p, p, W - 2 * p, H - 2 * p, r); ctx.lineWidth = hc ? 4 : 2.5; ctx.strokeStyle = hc ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.16)'; ctx.stroke();
 }
 function chip(ctx, x, y, label, color, o = {}) {
   const { size = 19, padX = 16, h = 38, fill = hexA(color, .16), textColor = color, weight = 700 } = o;
@@ -352,7 +359,7 @@ const std = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ co
    AUDIO (Web Audio sintetizado: no requiere archivos)
    =================================================================== */
 const Sound = (() => {
-  let ctx = null, master, sfx, music, amb, noise, muted = false;
+  let ctx = null, master, sfx, music, amb, noise, muted = false, musicVol = 1;
   const S = {};
   S.init = () => {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
@@ -360,7 +367,7 @@ const Sound = (() => {
       ctx = new AC();
       const comp = ctx.createDynamicsCompressor(); comp.connect(ctx.destination);
       master = ctx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(comp);
-      sfx = bus(.75); music = bus(.5); amb = bus(.7);
+      sfx = bus(.75); music = bus(.5 * musicVol); amb = bus(.7 * musicVol);
       const len = ctx.sampleRate * 3, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       noise = b;
@@ -494,14 +501,184 @@ const Sound = (() => {
     S.tone({ f: inhale ? 392 : 329.63, type: 'sine', d: 1.6, v: .05, attack: .3, dest: music });
   };
   S.finalChord = () => [261.63, 329.63, 392, 493.88, 523.25, 659.25].forEach((f, i) => S.tone({ f, type: 'triangle', t: i * .12, d: 3.2, v: .08, attack: .05 }));
+  S.setMusicVol = v => { musicVol = v; if (music) { music.gain.value = .5 * v; amb.gain.value = .7 * v; } };
+  S.applyTick = k => S.tone({ f: [392, 440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5][Math.min(7, Math.floor(k * 8))], type: 'sine', d: .9, v: .05, attack: .04 });
   S.setMuted = m => { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 1, ctx.currentTime, .05); };
   S.isMuted = () => muted;
   return S;
 })();
 
 /* ===================================================================
+   ACCESIBILIDAD (se guarda en este navegador)
+   Visual: texto grande · alto contraste · reducir movimiento
+   Auditiva: subtítulos de sonidos · volumen de la música
+   Motriz: agarre fácil · Cognitiva: ritmo tranquilo
+   =================================================================== */
+const Access = (() => {
+  const KEY = 'piki.acceso', D = { bigText: false, highContrast: false, reduceMotion: false, captions: true, easyGrab: false, calmPace: false, music: 0 };
+  let s = {}; try { s = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { s = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { } };
+  const A = {
+    get: k => (k in s ? s[k] : D[k]),
+    set(k, v) { s[k] = v; save(); A.apply(); },
+    toggle(k) { A.set(k, !A.get(k)); },
+    reset() { s = {}; try { localStorage.removeItem(KEY); } catch (e) { } A.apply(); },
+    musicVol: () => [1, .6, .3, 0][A.get('music')] ?? 1,
+    musicName: () => ['100 %', '60 %', '30 %', 'Sin música'][A.get('music')] || '100 %',
+    apply() {
+      Sound.setMusicVol(A.musicVol());
+      if (!A.get('captions')) hideCaption();
+      document.body.classList.toggle('big', !!A.get('bigText')); document.body.classList.toggle('hc', !!A.get('highContrast'));
+    },
+  };
+  return A;
+})();
+// Con "Alto contraste" los textos secundarios se aclaran
+Object.defineProperty(C, 'muted', { get: () => Access.get('highContrast') ? '#e3edf6' : '#9fb3c8' });
+Object.defineProperty(C, 'dim', { get: () => Access.get('highContrast') ? '#b8c7d6' : '#7f93a6' });
+
+/* ------------------------- Subtítulos de sonidos ------------------------- */
+let vrBar = null, hintNow = '', capTimer = 0;
+function hideCaption() { const el = $('#caption'); if (el) el.style.opacity = 0; if (vrBar) vrBar.redraw({ cap: '' }); }
+function caption(s) {
+  if (!Access.get('captions') || !s) return;
+  const t = '[ ' + s + ' ]'; const el = $('#caption'); if (el) { el.textContent = t; el.style.opacity = 1; }
+  if (vrBar) vrBar.redraw({ cap: t });
+  clearTimeout(capTimer); capTimer = setTimeout(hideCaption, 2600);
+}
+[['correct', 'Sonido de acierto'], ['wrong', 'Sonido de error'], ['good', 'Sonido: buena elección'], ['bad', 'Sonido: alimento no prioritario'],
+ ['level', 'Sonido: sube el nivel'], ['finalChord', 'Música de logro'], ['beatStart', 'Música del minijuego'], ['padStart', 'Música tranquila de fondo'],
+ ['crowdStart', 'Público del estadio de fondo'], ['crowdCheer', 'El público festeja']].forEach(([k, t]) => { const f = Sound[k]; Sound[k] = (...a) => { caption(t); return f(...a); }; });
+{ const f = Sound.whistle; Sound.whistle = p => { caption(p && p.length === 1 ? 'Silbato largo del árbitro' : 'Silbato del árbitro'); return f(p); }; }
+{ const f = Sound.breath; Sound.breath = (inh, d) => { caption(inh ? 'Sonido de inhalación' : 'Sonido de exhalación'); return f(inh, d); }; }
+
+/* ------------------------- Vibración de los controles ------------------------- */
+function haptic(v = .3, ms = 60) { ['#handL', '#handR'].forEach(id => { try { const tc = $(id).components['tracked-controls']; const ha = tc && tc.controller && tc.controller.gamepad && tc.controller.gamepad.hapticActuators; if (ha && ha[0]) ha[0].pulse(v, ms); } catch (e) { } }); }
+
+/* ===================================================================
+   PUNTERO (mouse / dedo / control VR / mirada) y cámara
+   =================================================================== */
+const Ptr = { ndc: new THREE.Vector2(0, 0), rc: new THREE.Raycaster(), ctrl: { '#handL': false, '#handR': false }, isDown: false };
+function pointerMode() { if (sceneEl.is('vr-mode')) return (Ptr.ctrl['#handR'] || Ptr.ctrl['#handL']) ? 'ctrl' : 'gaze'; return 'mouse'; }
+function pointerRay() {
+  const m = pointerMode(), cam = sceneEl.camera;
+  if (m === 'ctrl') for (const id of ['#handR', '#handL']) { if (!Ptr.ctrl[id]) continue; const rc = $(id).components.raycaster; if (rc && rc.raycaster) return rc.raycaster.ray.clone(); }
+  if (m !== 'mouse') { const o = new THREE.Vector3(), d = new THREE.Vector3(); cam.getWorldPosition(o); cam.getWorldDirection(d); return new THREE.Ray(o, d); }
+  Ptr.rc.setFromCamera(Ptr.ndc, cam); return Ptr.rc.ray.clone();
+}
+// Bloquea el giro de cámara con mouse/dedo (mientras se arrastra una herramienta o se sigue el camino)
+const lookHold = { drag: false, breath: false };
+function refreshLook() {
+  const lc = camEl && camEl.components['look-controls']; if (!lc) return; const on = lookHold.drag || lookHold.breath;
+  camEl.setAttribute('look-controls', { mouseEnabled: !on, touchEnabled: !on });
+  if (on) { lc.mouseDown = false; lc.touchStarted = false; }
+}
+// Temblor de cámara (respiración agitada). Con "Reducir movimiento" no tiembla.
+let Shake = 0;
+function shakeTick(time) {
+  const r = rigEl.object3D.rotation;
+  const k = Access.get('reduceMotion') ? 0 : sceneEl.is('vr-mode') ? Shake * .25 : Shake;
+  if (k < .001) { r.set(0, 0, 0); return; }
+  const t = time * 13, n = (a, b) => Math.sin(t * a + b) * .6 + Math.sin(t * a * 1.7 + b * 2) * .4;
+  r.set(n(1, 0) * .026 * k, n(.8, 3) * .026 * k, n(1.3, 5) * .013 * k);
+}
+
+/* ===================================================================
+   HERRAMIENTAS QUE SE ARRASTRAN (bolsa de hielo, compresa tibia, pelota de masaje)
+   =================================================================== */
+const Drag = { tools: [], held: null, sticky: false, focus: null, gazeTool: null, gazeT: 0 };
+function iconTexture(draw, size = 128) { const cv = mkCanvas(size, size); draw(cv.getContext('2d'), size); return canvasTex(cv); }
+function makeTool(kind, home, parent) {
+  const tr = TREAT[kind], g = new THREE.Group(), hits = [], mats = [];
+  const m = (o) => { const mt = std(o.color, Object.assign({ transparent: true, opacity: 1 }, o.extra)); mats.push(mt); return mt; };
+  if (kind === 'frio' || kind === 'calor') {
+    const isF = kind === 'frio';
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(.24, .16, .06, 1, 1, 1), m({ color: isF ? 0xcdeeff : 0xff9b5a, extra: { emissive: isF ? 0x1a5a7a : 0x7a2a00, emissiveIntensity: .55, roughness: isF ? .15 : .7 } }));
+    g.add(pack); hits.push(pack);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .03, 16), m({ color: 0xffffff })); cap.position.set(0, .095, 0); g.add(cap); hits.push(cap);
+    const icon = new THREE.Mesh(new THREE.PlaneGeometry(.12, .12), new THREE.MeshBasicMaterial({ map: iconTexture((c, s) => tr.icon(c, s / 2, s / 2, s * .36, isF ? '#1d6fa3' : '#fff3b0')), transparent: true, depthWrite: false }));
+    icon.position.z = .032; g.add(icon); mats.push(icon.material);
+  } else {
+    const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(.08, 2), m({ color: 0x3ddc97, extra: { emissive: 0x0a4a2a, emissiveIntensity: .5, roughness: .55 } })); g.add(ball); hits.push(ball);
+    const ico = new THREE.IcosahedronGeometry(.08, 0), pos = ico.attributes.position, seen = new Set(), spikeM = m({ color: 0x2fbf80, extra: { roughness: .6 } });
+    for (let i = 0; i < pos.count; i++) {
+      const v = new THREE.Vector3().fromBufferAttribute(pos, i); const key = v.toArray().map(x => x.toFixed(3)).join(); if (seen.has(key)) continue; seen.add(key);
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(.014, .03, 6), spikeM); sp.position.copy(v.clone().multiplyScalar(1.02)); sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize()); g.add(sp);
+    }
+  }
+  const halo = glowSprite(new THREE.Color(tr.color).getHex(), .45, .45); halo.renderOrder = 4; g.add(halo);
+  const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: iconTexture((c, s) => { circle(c, s / 2, s / 2, s * .42); c.fillStyle = C.red; c.fill(); iconCross(c, s / 2, s / 2, s * .16, '#fff', s * .07); }), depthTest: false, transparent: true }));
+  badge.scale.setScalar(.08); badge.position.set(.12, .11, .05); badge.renderOrder = 40; badge.visible = false; g.add(badge);
+  // la herramienta se dibuja por encima del marcador de la zona (si no, queda tapada al apoyarla)
+  g.traverse(o => { if (o.isMesh) { o.renderOrder = o.material.map ? 36 : 35; o.material.depthTest = false; } });
+  g.position.copy(home); parent.object3D.add(g);
+  // base y etiqueta
+  const ped = new THREE.Mesh(new THREE.RingGeometry(.16, .2, 48), new THREE.MeshBasicMaterial({ color: tr.color, transparent: true, opacity: .7, side: THREE.DoubleSide, depthWrite: false }));
+  ped.rotation.x = -Math.PI / 2; ped.position.set(home.x, home.y - .14, home.z); parent.object3D.add(ped);
+  const pglow = glowSprite(new THREE.Color(tr.color).getHex(), .5, .25); pglow.position.copy(ped.position); parent.object3D.add(pglow);
+  const sub = kind === 'frio' ? 'bolsa de hielo' : kind === 'calor' ? 'compresa tibia' : 'pelota de masaje';
+  const label = canvasPlane(.6, .14, (c, W, H) => { txt(c, tr.label, W / 2, 34, { size: 30, weight: 900, align: 'center' }); txt(c, sub, W / 2, 52, { size: 15, weight: 700, color: tr.color, align: 'center' }); }, { parent, pos: [home.x, home.y - .24, home.z + .02], big: false });
+  return { kind, g, home: home.clone(), hits, mats, badge, extras: [ped, pglow], label, disabled: false, hidden: false, held: false, speed: 0, last: null };
+}
+function setToolDisabled(t) { t.disabled = true; t.mats.forEach(mt => mt.opacity = .35); t.badge.visible = true; }
+function hideTool(t) { t.hidden = true; t.extras.forEach(e => e.visible = false); vanish(t.label, 250); tween(300, k => t.g.scale.setScalar(Math.max(.001, 1 - k))).then(() => t.g.visible = false); }
+function hitTool(ray) {
+  const meshes = []; Drag.tools.forEach(t => { if (!t.disabled && !t.hidden) t.hits.forEach(h => meshes.push(h)); });
+  if (!meshes.length) return null;
+  const rc = new THREE.Raycaster(ray.origin, ray.direction.clone().normalize(), 0, 40);
+  const hit = rc.intersectObjects(meshes, false)[0];
+  return hit ? Drag.tools.find(t => t.hits.includes(hit.object)) : null;
+}
+function grabTool(t, sticky) { if (!t || t.disabled || t.hidden) return; Drag.held = t; Drag.sticky = sticky; t.held = true; lookHold.drag = true; refreshLook(); Sound.soft(); }
+function releaseTool() { const t = Drag.held; if (!t) return; Drag.held = null; Drag.sticky = false; t.held = false; lookHold.drag = Ptr.isDown; refreshLook(); }
+// Punto del mundo sobre un plano que pasa por la zona marcada y mira a la cámara
+function dragTarget(ray) {
+  const cam = new THREE.Vector3(); sceneEl.camera.getWorldPosition(cam);
+  const fp = Drag.focus ? Drag.focus() : ray.at(2, new THREE.Vector3());
+  const n = cam.clone().sub(fp); n.y = 0; if (n.lengthSq() < 1e-4) n.copy(ray.direction).negate(); n.normalize();
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, fp.clone().addScaledVector(n, .07));
+  const p = new THREE.Vector3();
+  if (ray.intersectPlane(plane, p)) { const d = p.distanceTo(ray.origin); if (d > .3 && d < 6) return p; }
+  return ray.at(1.6, new THREE.Vector3());
+}
+function dragTick(dt, time) {
+  if (!Drag.tools.length) return;
+  const ray = pointerRay();
+  // Solo mirada: mirar una herramienta 1 s la agarra
+  if (pointerMode() === 'gaze' && !Drag.held) { const t = hitTool(ray); if (t && t === Drag.gazeTool) { Drag.gazeT += dt; if (Drag.gazeT > 1.1) { grabTool(t, true); Drag.gazeT = 0; } } else { Drag.gazeTool = t; Drag.gazeT = 0; } }
+  const camW = new THREE.Vector3(); sceneEl.camera.getWorldPosition(camW);
+  Drag.tools.forEach(t => {
+    const o = t.g, parent = o.parent; if (!parent || t.hidden) return;
+    const q0 = o.quaternion.clone();
+    if (t.held) {
+      const lp = parent.worldToLocal(dragTarget(ray)); o.position.lerp(lp, 1 - Math.exp(-dt * 22));
+      o.lookAt(camW); const q1 = o.quaternion.clone(); o.quaternion.copy(q0).slerp(q1, 1 - Math.exp(-dt * 10));
+    } else {
+      const h = t.home.clone(); h.y += Math.sin(time * 2 + t.home.x * 3) * .015; o.position.lerp(h, 1 - Math.exp(-dt * 8));
+      const q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.35, Math.sin(time * .9 + t.home.x) * .5, 0, 'YXZ')); o.quaternion.copy(q0).slerp(q1, 1 - Math.exp(-dt * 4));
+    }
+    o.scale.setScalar(lerp(o.scale.x, t.disabled ? .7 : 1, 1 - Math.exp(-dt * 10)));
+    const w = o.getWorldPosition(new THREE.Vector3()); t.speed = t.last ? w.distanceTo(t.last) / Math.max(dt, 1e-4) : 0; t.last = w;
+  });
+}
+function ptrDown() {
+  Ptr.isDown = true;
+  if (!Drag.tools.length || pointerMode() === 'gaze') return;
+  const ray = pointerRay(), easy = Access.get('easyGrab');
+  if (Drag.held && Drag.sticky && easy) {
+    // "Agarre fácil": tocar cerca de la zona lleva la herramienta ahí; tocar en otro lado la suelta
+    const wp = dragTarget(ray), f = Drag.focus && Drag.focus();
+    if (!f || wp.distanceTo(f) > .45) releaseTool(); else { const t = Drag.held; t.g.position.copy(t.g.parent.worldToLocal(wp)); lookHold.drag = true; refreshLook(); }
+    return;
+  }
+  if (!Drag.held) { const t = hitTool(ray); if (t) grabTool(t, easy); }
+}
+function ptrUp() { Ptr.isDown = false; if (Drag.held && !Drag.sticky) releaseTool(); if (!Drag.held) { lookHold.drag = false; refreshLook(); } }
+
+/* ===================================================================
    ESTADO GLOBAL
    =================================================================== */
+const NEXT = { min: 0, h: 0, a: 0, foot: '' }; // marcador del próximo partido
 const G = {
   sport: 'futbol', match: null, env: null,
   phys: null, nutri: null, calm: null,
@@ -535,7 +712,7 @@ function removeEl(el) {
   if (el.parentNode) el.parentNode.removeChild(el);
 }
 function canvasPlane(w, h, draw, o = {}) {
-  const { ppm = 400, parent = uiRoot, pos = [0, 0, 0], rot = [0, 0, 0], clickable = false, order = 10, state = {}, depthTest = true } = o;
+  const { ppm = 400, parent = uiRoot, pos = [0, 0, 0], rot = [0, 0, 0], clickable = false, order = 10, state = {}, depthTest = true, big = true } = o;
   const cv = mkCanvas(Math.round(w * ppm), Math.round(h * ppm)); const ctx = cv.getContext('2d');
   const tex = canvasTex(cv);
   const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest, fog: false, side: THREE.DoubleSide });
@@ -545,6 +722,10 @@ function canvasPlane(w, h, draw, o = {}) {
   el.object3D.position.set(pos[0], pos[1], pos[2]);
   el.object3D.rotation.set(THREE.MathUtils.degToRad(rot[0]), THREE.MathUtils.degToRad(rot[1]), THREE.MathUtils.degToRad(rot[2]));
   if (clickable) el.classList.add('clickable');
+  // "Texto grande": paneles principales y botones más grandes (los paneles suben para no tapar los botones)
+  let bigK = 1; if (big && Access.get('bigText')) { if (w >= 2 && order < 20) bigK = 1.15; else if (order === 20) bigK = 1.12; }
+  if (bigK !== 1) { mesh.scale.setScalar(bigK); if (order < 20) el.object3D.position.y += h * (bigK - 1) / 2; }
+  el.bigK = bigK;
   parent.appendChild(el); el.setObject3D('mesh', mesh);
   el.ui = { cv, ctx, tex, state, draw, mesh, mat };
   el.redraw = patch => { if (patch) Object.assign(el.ui.state, patch); ctx.clearRect(0, 0, cv.width, cv.height); draw(ctx, cv.width, cv.height, el.ui.state); tex.needsUpdate = true; };
@@ -575,7 +756,7 @@ function drawButton(c, W, H, s) {
   const p = Math.round(H * .1), r = (H - 2 * p) / 2;
   const variants = {
     primary: { a: '#22f0bf', b: '#0fb5d6', text: '#04131f', border: 'rgba(255,255,255,.5)' },
-    secondary: { a: 'rgba(255,255,255,.1)', b: 'rgba(255,255,255,.04)', text: C.text, border: 'rgba(255,255,255,.4)' },
+    secondary: { a: '#000000', b: '#000000', text: C.text, border: '#000000' },
     warm: { a: '#ffb36b', b: '#ff7a3d', text: '#1a0c02', border: 'rgba(255,255,255,.5)' },
   };
   const v = variants[s.variant || 'primary'];
@@ -588,8 +769,8 @@ function drawButton(c, W, H, s) {
   c.globalAlpha = 1;
 }
 function button(label, o = {}) {
-  const { w = 1, h = .22, parent, pos, rot, variant = 'primary', onClick, draw = drawButton, state = {}, ppm = 400 } = o;
-  const el = canvasPlane(w, h, draw, { parent, pos, rot, clickable: true, order: 20, ppm, state: Object.assign({ label, variant, hover: false, disabled: false }, state) });
+  const { w = 1, h = .22, parent, pos, rot, variant = 'primary', onClick, draw = drawButton, state = {}, ppm = 400, big = true } = o;
+  const el = canvasPlane(w, h, draw, { parent, pos, rot, clickable: true, order: 20, ppm, big, state: Object.assign({ label, variant, hover: false, disabled: false }, state) });
   el.addEventListener('mouseenter', () => { if (el.ui.state.disabled) return; el.redraw({ hover: true }); scaleTo(el, 1.06); Sound.hover(); });
   el.addEventListener('mouseleave', () => { el.redraw({ hover: false }); scaleTo(el, 1); });
   el.addEventListener('click', () => {
@@ -616,11 +797,20 @@ function makeStage() {
   el.floorY = -lift; el.ticks = new Set(); stage = el; return el;
 }
 function makeScreen() {
+  Drag.tools = []; Drag.held = null; Drag.sticky = false; Drag.focus = null; lookHold.drag = false; refreshLook(); Shake = 0;
   removeEl(screen);
   const el = document.createElement('a-entity'); stage.appendChild(el); el.ticks = new Set(); screen = el; return el;
 }
 function onTick(fn, owner = screen) { tickers.add(fn); owner.ticks.add(fn); return () => { tickers.delete(fn); owner.ticks.delete(fn); }; }
-function setHint(s) { const h = $('#hint'); h.textContent = s; h.style.opacity = s ? 1 : 0; }
+function setHint(s) { hintNow = s || ''; const h = $('#hint'); h.textContent = hintNow; h.style.opacity = hintNow ? 1 : 0; if (vrBar) vrBar.redraw({ hint: hintNow }); }
+function drawVrBar(c, W, H, s) {
+  // En VR: subtítulos de sonidos y barra de instrucciones frente a la vista
+  if (s.cap) { setFont(c, 24, 800); const w = Math.min(W - 20, c.measureText(s.cap).width + 40); rr(c, (W - w) / 2, 4, w, 40, 20); c.fillStyle = 'rgba(0,0,0,.85)'; c.fill(); txt(c, s.cap, W / 2, 32, { size: 24, weight: 800, color: '#ffd93d', align: 'center', maxW: W - 40 }); }
+  if (s.hint) {
+    rr(c, 4, 56, W - 8, H - 60, 24); c.fillStyle = Access.get('highContrast') ? '#000' : 'rgba(0,51,62,.94)'; c.fill(); c.fillStyle = C.lima; c.fillRect(30, 56, W - 60, 4);
+    wrap(c, s.hint, W / 2, 98, W - 60, 30, { size: 24, weight: 700, color: '#eaf2fb', align: 'center' });
+  }
+}
 
 /* ------------------------- Fundido y carteles ------------------------- */
 function fade(to, ms = 900) { const m = fadeMesh.material, from = m.opacity; return tween(ms, k => m.opacity = lerp(from, to, k)); }
@@ -936,6 +1126,12 @@ function buildStadium() {
       txt(sbc, 'VISITANTE', 814, 190, { size: 58, weight: 900, color: '#ff6b7a', align: 'center' });
       txt(sbc, `${m.goalsHome}  –  ${m.goalsAway}`, W / 2, 215, { size: 130, weight: 900, color: '#fff', align: 'center' });
       txt(sbc, `90+${m.minutes - 90}'  ·  El esfuerzo terminó. La recuperación empieza.`, W / 2, 310, { size: 30, weight: 700, color: '#cfe', align: 'center' });
+    } else if (mode === 'next') {
+      txt(sbc, `${NEXT.min}'`, W / 2, 70, { size: 44, weight: 900, color: '#ffd93d', align: 'center', ls: 6 });
+      txt(sbc, 'PIKI FC', 210, 190, { size: 58, weight: 900, color: '#b9d339', align: 'center' });
+      txt(sbc, 'VISITANTE', 814, 190, { size: 58, weight: 900, color: '#ff6b7a', align: 'center' });
+      txt(sbc, `${NEXT.h}  –  ${NEXT.a}`, W / 2, 215, { size: 130, weight: 900, color: '#fff', align: 'center' });
+      txt(sbc, NEXT.foot, W / 2, 310, { size: 30, weight: 700, color: '#cfe', align: 'center' });
     } else if (mode === 'calm') {
       txt(sbc, 'VUELTA A LA CALMA', W / 2, 150, { size: 72, weight: 900, color: '#b388ff', align: 'center' });
       txt(sbc, 'Inhalá · Exhalá · Soltá', W / 2, 250, { size: 44, weight: 600, color: '#dfe', align: 'center' });
@@ -993,8 +1189,25 @@ function buildStadium() {
     p.speed = rand(.9, 1.5); p.idle = rand(0, 5); pgroup.add(p.g);
   });
   resetPlayers();
+  // Próximo partido: los jugadores corren por la cancha y "vos" (#10) llevás la pelota
+  let wander = false, you = null;
+  const walk = (p, tx, tz, dt) => {
+    const dx = tx - p.g.position.x, dz = tz - p.g.position.z, d = Math.hypot(dx, dz); if (d < .5) return true;
+    p.g.position.x += dx / d * p.speed * dt; p.g.position.z += dz / d * p.speed * dt; p.g.rotation.y = Math.atan2(dx, dz);
+    p.phase += dt * p.speed * 5.5; const s = Math.sin(p.phase) * .5; p.legs[0].rotation.x = s; p.legs[1].rotation.x = -s; p.arms[0].rotation.x = -s * .8; p.arms[1].rotation.x = s * .8;
+    return false;
+  };
   upd.push((dt) => {
     if (!pgroup.visible) return;
+    if (wander) {
+      players.forEach(p => { if (p.tx === undefined || walk(p, p.tx, p.tz, dt)) { p.tx = rand(-30, 30); p.tz = rand(-48, 48); } });
+      if (you && you.g.visible) {
+        if (you.exit) { if (walk(you, -40.5, 0, dt)) you.g.visible = false; }
+        else if (you.tx === undefined || walk(you, you.tx, you.tz, dt)) { you.tx = rand(-12, 12); you.tz = rand(-22, 2); }
+        if (you.ball) you.ball.rotation.x += dt * 8;
+      }
+      return;
+    }
     players.forEach(p => {
       if (!p.g.visible) return;
       if (p.idle > 0) { p.idle -= dt; p.legs.forEach(l => l.rotation.x *= .9); p.g.lookAt(p.g.position.x - 1, 0, p.g.position.z); return; }
@@ -1011,10 +1224,26 @@ function buildStadium() {
     group: g, sbDraw: drawBoard,
     setFlood(v) { floodGlows.forEach(s => s.material.opacity = v); floodPanels.forEach(m => m.color.setScalar(.25 + .75 * clamp(v, 0, 1))); roofLights.material.color.setScalar(.2 + .8 * clamp(v, 0, 1)); sbGlow.material.opacity = .08 + .2 * v; },
     mode(m) {
-      standMat.map = m === 'match' ? crowdFull : crowdEmpty; standMat.needsUpdate = true;
-      pgroup.visible = m === 'match'; if (m === 'match') resetPlayers();
-      drawBoard(m === 'match' ? 'match' : m === 'calm' ? 'calm' : m === 'done' ? 'done' : 'logo');
+      const full = m === 'match' || m === 'next';
+      standMat.map = full ? crowdFull : crowdEmpty; standMat.needsUpdate = true;
+      pgroup.visible = full; wander = m === 'next'; if (full) resetPlayers();
+      players.forEach(p => { p.tx = undefined; p.speed = m === 'next' ? rand(2, 4) : p.speed; });
+      if (you) you.g.visible = false;
+      drawBoard(m === 'match' ? 'match' : m === 'next' ? 'next' : m === 'calm' ? 'calm' : m === 'done' ? 'done' : 'logo');
     },
+    startNext() {
+      if (!you) {
+        you = makePlayer(0x22f0bf, 0xffffff, 0xd9a47f, 0x22f0bf); pgroup.add(you.g);
+        you.ball = new THREE.Mesh(new THREE.SphereGeometry(.11, 20, 14), std(0xffffff, { map: ballTexture(), roughness: .5 })); you.ball.position.set(0, .11, .45); you.g.add(you.ball);
+        const tcv = mkCanvas(360, 80), tc = tcv.getContext('2d'); rr(tc, 4, 4, 352, 72, 36); tc.fillStyle = 'rgba(2,4,9,.85)'; tc.fill(); tc.lineWidth = 6; tc.strokeStyle = '#22f0bf'; tc.stroke();
+        txt(tc, 'VOS · #10', 180, 55, { size: 40, weight: 900, color: '#22f0bf', align: 'center' });
+        const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(tcv), depthTest: false, fog: false })); tag.scale.set(.9, .2, 1); tag.position.y = 2.15; tag.renderOrder = 20; you.g.add(tag);
+      }
+      you.g.visible = true; you.exit = false; you.tx = undefined; you.speed = 2.6; you.g.position.set(3, 0, -6);
+      if (!you.ball.parent) you.g.add(you.ball);
+      return you;
+    },
+    youExit() { if (!you) return; you.exit = true; you.speed = 1.2; if (you.ball.parent) you.g.remove(you.ball); },
     update(dt, t) { upd.forEach(f => f(dt, t)); },
   };
 }
@@ -1113,6 +1342,7 @@ function setEnv(name, mode) {
   if (name === 'locker') { applyLight(LIGHT.locker); rigEl.object3D.position.set(0, 0, .6); }
   if (name === 'stadium') {
     ENV.stadium.mode(mode);
+    if (mode === 'next') mode = 'match';
     const sky = mode === 'match' ? SKY.dusk : mode === 'calm' ? SKY.night : SKY.dawn;
     const lp = mode === 'match' ? LIGHT.match : mode === 'calm' ? LIGHT.calm : LIGHT.dawn;
     ENV.sky.draw(sky); applyLight(lp); rigEl.object3D.position.set(0, 0, 6);
@@ -1164,7 +1394,7 @@ function buildBody(parent) {
       this.t += dt;
       if (this.spin) g.rotation.y += dt * .55;
       scan.position.y = .1 + (Math.sin(this.t * 1.3) * .5 + .5) * 1.75;
-      const p = 1 + Math.sin(this.t * 6) * .18; marker.scale.setScalar(p); mGlow.scale.setScalar(.5 * p);
+      const p = 1 + Math.sin(this.t * 6) * .18; marker.scale.setScalar(p * (this.hl ? 1.3 : 1)); mGlow.scale.setScalar(.5 * p); mGlow.material.opacity = this.hl ? .45 : .9;
       mRing.scale.setScalar(1 + ((this.t * .8) % 1) * 1.6); mRing.material.opacity = .8 * (1 - ((this.t * .8) % 1));
       const cam = camEl.object3D; const wp = new THREE.Vector3(); cam.getWorldPosition(wp); mRing.lookAt(wp);
       if (this.effect) this.effect(dt);
@@ -1173,7 +1403,7 @@ function buildBody(parent) {
   return body;
 }
 /* efectos de aplicación sobre la zona */
-function treatmentFX(body, kind) {
+function treatmentFX(body, kind, noPack = false) {
   const holder = new THREE.Group(); body.markerG.add(holder);
   const color = kind === 'frio' ? 0x7fd8ff : kind === 'calor' ? 0xff8a3d : 0x3ddc97;
   const n = 46, pos = new Float32Array(n * 3), data = [];
@@ -1182,7 +1412,7 @@ function treatmentFX(body, kind) {
   const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: kind === 'frio' ? .03 : .025, map: dotTex, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
   pts.renderOrder = 32; holder.add(pts);
   let pack = null; const rings = [];
-  if (kind === 'frio' || kind === 'calor') {
+  if ((kind === 'frio' || kind === 'calor') && !noPack) {
     pack = new THREE.Mesh(new THREE.BoxGeometry(.2, .14, .05), new THREE.MeshStandardMaterial({ color: kind === 'frio' ? 0xbfefff : 0xff9b5a, emissive: kind === 'frio' ? 0x1a6a8a : 0x8a2a00, transparent: true, opacity: .85, depthTest: false }));
     pack.renderOrder = 33; pack.position.set(0, 0, .45); holder.add(pack);
   } else {
@@ -1202,7 +1432,7 @@ function treatmentFX(body, kind) {
     rings.forEach((r, i) => { const k = (t * .9 + i / 3) % 1; r.scale.setScalar(1 + k * 3); r.material.opacity = 1 - k; const wp = new THREE.Vector3(); camEl.object3D.getWorldPosition(wp); r.lookAt(wp); });
     glow.scale.setScalar(.25 + Math.sin(t * 3) * .05 + Math.min(t, 3) * .08);
   };
-  return { step, dispose() { body.markerG.remove(holder); disposeObj(holder); } };
+  return { step, holder, dispose() { body.markerG.remove(holder); disposeObj(holder); } };
 }
 
 /* ===================================================================
@@ -1303,8 +1533,9 @@ function showWelcome() {
     });
     txt(c, 'Mirá a tu alrededor · Seleccioná con clic, toque, gatillo o sosteniendo la mirada', W / 2, H - 38, { size: 19, weight: 600, color: C.muted, align: 'center' });
   }, { parent: screen, pos: [0, 1.86, -2.7] });
-  const b = button('COMENZAR', { parent: screen, pos: [0, .95, -2.66], w: 1.05, h: .23, onClick: () => { Sound.init(); showSport(); } });
-  appear(panel); appear(b, 250);
+  const b = button('Comenzar', { parent: screen, pos: [-.36, .95, -2.66], w: 1.05, h: .23, onClick: () => { Sound.init(); showSport(); } });
+  const ba = button('Accesibilidad', { parent: screen, pos: [.62, .95, -2.66], w: .78, h: .23, variant: 'secondary', onClick: () => { Sound.init(); showAccess(); } });
+  appear(panel); appear(b, 250); appear(ba, 320);
 }
 
 /* ---------- 1. Elección de deporte ---------- */
@@ -1383,7 +1614,7 @@ function showArrival() {
     wrap(c, 'Lo que hagas en las próximas horas es trabajo invisible: nadie lo ve, pero define cómo llegás al próximo entrenamiento y al próximo partido.', 56, 478, W - 112, 32, { size: 23, weight: 500, color: '#c9d6e6' });
     stepper(c, W - 420, 70, 380, 0, C.orange);
   }, { parent: screen, pos: [0, 1.84, -2.8] });
-  const b = button('INICIAR RECUPERACIÓN  →', { parent: screen, pos: [0, .9, -2.76], w: 1.3, h: .23, onClick: () => showPhysIntro() });
+  const b = button('Iniciar recuperación', { parent: screen, pos: [0, .9, -2.76], w: 1.3, h: .23, onClick: () => showPhysIntro() });
   appear(panel, 2800, 700); appear(b, 3300);
 }
 
@@ -1411,10 +1642,10 @@ function showPhysIntro() {
     txt(c, 'Recuperación física', 48, 150, { size: 54, weight: 900 });
     wrap(c, 'Después del partido tu cuerpo te muestra señales. En cada situación el sistema genera al azar qué sentís, en qué zona y con qué intensidad.', 48, 204, W - 96, 34, { size: 24, weight: 500, color: '#c9d6e6' });
     let x = 48; Object.values(TYPES).forEach(t => { x += chip(c, x, 300, t.label, t.color, { size: 18 }) + 12; });
-    wrap(c, 'Leé las señales, interpretá qué está pasando y decidí qué necesita la zona: no hay instrucciones, la decisión es tuya.', 48, 390, W - 96, 34, { size: 24, weight: 600, color: C.text });
+    wrap(c, 'Leé las señales, decidí qué necesita la zona y aplicalo vos: agarrá la bolsa de hielo, la compresa tibia o la pelota de masaje y pasala por la zona marcada.', 48, 390, W - 96, 34, { size: 24, weight: 600, color: C.text });
     txt(c, '3 situaciones · distintas en cada partida', 48, H - 42, { size: 19, weight: 600, color: C.muted });
   }, { parent: screen, pos: [-.4, 1.82, -2.75] });
-  const b = button('VER SITUACIÓN 1  →', { parent: screen, pos: [-.4, .9, -2.72], w: 1.1, h: .22, onClick: () => showSituation(0) });
+  const b = button('Ver situación 1', { parent: screen, pos: [-.4, .9, -2.72], w: 1.1, h: .22, onClick: () => showSituation(0) });
   appear(panel); appear(b, 250);
 }
 function drawChoice(c, W, H, s) {
@@ -1447,88 +1678,99 @@ function drawSituation(c, W, H, s) {
   txt(c, sit.zone.desc + (sit.side ? ` · lado ${sit.side}` : ''), 44, 226, { size: 21, weight: 600, color: C.muted });
   let y = wrap(c, sit.text, 44, 272, W - 88, 32, { size: 23, weight: 500, color: '#dbe6f2' });
   let x = 44; y += 2; sit.signals.forEach(sg => { x += chip(c, x, y, sg, ty.color, { size: 16, h: 34, padX: 13 }) + 10; });
-  // zona de feedback
+  // zona de respuesta
   const by = H - 196, bh = 170;
   const box = (col) => { rr(c, 30, by, W - 60, bh, 22); c.fillStyle = hexA(col, .14); c.fill(); c.strokeStyle = hexA(col, .6); c.lineWidth = 2.5; c.stroke(); };
   if (s.mode === 'question') {
     box(C.teal);
-    txt(c, '¿Qué necesita esta zona?', W / 2, by + 78, { size: 40, weight: 900, align: 'center' });
-    txt(c, 'Interpretá las señales y elegí una opción', W / 2, by + 122, { size: 20, weight: 600, color: C.muted, align: 'center' });
+    txt(c, '¿Qué necesita esta zona?', W / 2, by + 74, { size: 40, weight: 900, align: 'center' });
+    txt(c, s.easy ? 'Tocá una herramienta de abajo y llevala a la zona marcada (no hace falta mantener apretado)' : 'Agarrá una herramienta de abajo y pasala por la zona marcada en el cuerpo', W / 2, by + 118, { size: 20, weight: 600, color: C.muted, align: 'center', maxW: W - 80 });
   } else if (s.mode === 'wrong') {
     box(C.red); circle(c, 76, by + 50, 22); c.fillStyle = C.red; c.fill(); iconCross(c, 76, by + 50, 9, '#fff', 4);
     txt(c, 'No es la mejor opción para esta situación.', 112, by + 59, { size: 26, weight: 800, color: '#ffb3bb' });
     const yy = wrap(c, HINTS[sit.correct][s.wrong] || '', 60, by + 100, W - 120, 28, { size: 20, weight: 500, color: '#f3dde0' });
-    txt(c, 'Probá con otra opción.', 60, Math.min(yy + 4, by + bh - 14), { size: 19, weight: 700, color: C.text });
-  } else if (s.mode === 'correct') {
-    box(C.green); circle(c, 76, by + 50, 22); c.fillStyle = C.green; c.fill(); iconCheck(c, 76, by + 50, 11, '#04131f', 4.5);
-    txt(c, `Respuesta correcta · ${tr.label}`, 112, by + 59, { size: 28, weight: 900, color: '#b9f7dc' });
-    wrap(c, tr.expl, 60, by + 100, W - 120, 28, { size: 20, weight: 500, color: '#e0f5ec' });
-  } else if (s.mode === 'applying' || s.mode === 'done') {
+    txt(c, 'Probá con otra herramienta.', 60, Math.min(yy + 4, by + bh - 14), { size: 19, weight: 700, color: C.text });
+  } else if (s.mode === 'applying') {
     const col = tr.color; box(col);
-    tr.icon(c, 80, by + 52, 24, col);
-    const done = s.mode === 'done';
-    txt(c, done ? 'Zona recuperada' : tr.verb + '…', 120, by + 62, { size: 30, weight: 900, color: done ? C.green : '#fff' });
+    tr.icon(c, 76, by + 48, 22, col);
+    txt(c, `Respuesta correcta · ${tr.verb}`, 112, by + 57, { size: 23, weight: 800, color: '#b9f7dc', maxW: W - 340 });
     const mins = tr.mins * (s.k || 0); const mm = Math.floor(mins), ss = Math.floor((mins - mm) * 60);
-    txt(c, `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')} / ${tr.mins}:00`, W - 60, by + 62, { size: 26, weight: 800, color: C.text, align: 'right' });
-    progressBar(c, 60, by + 86, W - 120, 22, s.k || 0, done ? C.green : col);
-    txt(c, done ? `${sit.attempts === 1 ? 'Acertaste a la primera ✓' : `Lo resolviste en ${sit.attempts} intentos`} · ${tr.how}` : tr.how, 60, by + 142, { size: 19, weight: 600, color: C.muted });
+    txt(c, `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')} / ${tr.mins}:00`, W - 60, by + 57, { size: 22, weight: 800, color: C.text, align: 'right' });
+    txt(c, s.instr || '', 60, by + 98, { size: 21, weight: 800, color: s.instrCol || '#fff' });
+    progressBar(c, 60, by + 116, W - 120, 20, s.k || 0, col);
+    txt(c, tr.how, 60, by + 160, { size: 18, weight: 700, color: C.muted });
+  } else if (s.mode === 'done') {
+    box(C.green); circle(c, 76, by + 48, 22); c.fillStyle = C.green; c.fill(); iconCheck(c, 76, by + 48, 11, '#04131f', 4.5);
+    txt(c, `Zona recuperada · ${sit.attempts === 1 ? 'acertaste a la primera' : `lo resolviste en ${sit.attempts} intentos`}`, 112, by + 57, { size: 25, weight: 800, color: '#b9f7dc' });
+    wrap(c, tr.expl, 60, by + 98, W - 120, 27, { size: 19, weight: 500, color: '#e0f5ec' });
   }
+}
+
+function faceZone(sit) {
+  body.spin = false;
+  const fig = body.figure; const target = sit.pos[2] < -.03 ? Math.PI : 0; const from = fig.rotation.y % (Math.PI * 2);
+  let to = target; while (to - from > Math.PI) to -= Math.PI * 2; while (to - from < -Math.PI) to += Math.PI * 2;
+  tween(900, k => fig.rotation.y = lerp(from, to, k));
 }
 function showSituation(i) {
   makeScreen(); ensureBody();
   const sit = G.phys.sits[i]; G.phys.idx = i;
-  body.setMarker(sit.pos); body.spin = true;
-  setHint(`Situación ${i + 1} de 3 · ¿Qué necesita la zona? Elegí Frío, Calor o Masajes`);
-  const panel = canvasPlane(2.2, 1.62, drawSituation, { parent: screen, pos: [-.42, 1.86, -2.75], state: { sit, i, mode: 'question' } });
+  body.setMarker(sit.pos); faceZone(sit);
+  const easy = Access.get('easyGrab');
+  setHint(`Situación ${i + 1} de 3 · ` + (easy ? 'Tocá la herramienta correcta y llevala hasta la zona marcada' : 'Arrastrá la herramienta correcta hasta la zona marcada y mantenela ahí'));
+  const panel = canvasPlane(2.2, 1.62, drawSituation, { parent: screen, pos: [-.42, 1.86, -2.75], state: { sit, i, mode: 'question', easy } });
   appear(panel);
   const zoneTag = canvasPlane(.9, .14, (c, W, H) => { rr(c, 4, 4, W - 8, H - 8, (H - 8) / 2); c.fillStyle = 'rgba(5,11,22,.8)'; c.fill(); c.strokeStyle = TYPES[sit.type].color; c.lineWidth = 3; c.stroke(); txt(c, sit.zone.name.toUpperCase() + (sit.side ? ` · ${sit.side.toUpperCase()}` : ''), W / 2, H * .66, { size: 24, weight: 800, color: TYPES[sit.type].color, align: 'center', ls: 2 }); }, { parent: screen, pos: [1.55, 2.3 + stage.floorY, -2.45], rot: [0, -25, 0] });
   appear(zoneTag, 300);
-  const opts = ['frio', 'calor', 'masaje']; const btns = {};
-  let busy = false;
-  opts.forEach((opt, k) => {
-    btns[opt] = button(TREAT[opt].label, {
-      parent: screen, pos: [-1.13 + k * .71, .79, -2.7], w: .64, h: .44, draw: drawChoice, state: { opt, st: null },
-      onClick: async el => {
-        if (busy || sit.done) return;
-        sit.attempts++;
-        if (opt === sit.correct) {
-          busy = true; sit.firstTry = sit.attempts === 1; Sound.correct();
-          opts.forEach(o => { if (o !== opt) { btns[o].redraw({ st: 'dim', disabled: true }); btns[o].classList.remove('clickable'); } });
-          el.redraw({ st: 'correct', hover: false }); el.classList.remove('clickable');
-          panel.redraw({ mode: 'correct' });
-          await wait(2300);
-          await applyTreatment(sit, panel, i);
-        } else {
-          Sound.wrong(); sit.wrongs.push(opt);
-          el.redraw({ st: 'wrong', disabled: true, hover: false }); el.classList.remove('clickable'); scaleTo(el, 1);
-          const o = el.object3D.position.x; tween(400, k2 => el.object3D.position.x = o + Math.sin(k2 * Math.PI * 6) * .025 * (1 - k2), ease.lin);
-          panel.redraw({ mode: 'wrong', wrong: opt });
-        }
-      },
-    });
-    btns[opt].classList.add('choice'); appear(btns[opt], 200 + k * 90);
+  // Herramientas: se agarran y se pasan por la zona marcada del cuerpo
+  const tools = ['frio', 'calor', 'masaje'].map((kind, k) => makeTool(kind, new THREE.Vector3(-1.13 + k * .71, .9, -2.6), screen));
+  tools.forEach((t, k) => { t.g.scale.setScalar(.001); appear(t.label, 200 + k * 90); });
+  Drag.tools = tools; Drag.focus = () => body.markerG.getWorldPosition(new THREE.Vector3());
+  const nearD = easy || Access.get('calmPace') ? .32 : .24, DUR = 5.5;
+  const keep = sit.correct === 'frio' ? 'Mantené la bolsa de hielo apoyada sobre la zona' : sit.correct === 'calor' ? 'Mantené la compresa tibia apoyada sobre la zona' : easy ? 'Mantené la pelota de masaje sobre la zona' : 'Mové la pelota en círculos suaves sobre la zona';
+  const S = { decided: false, progress: 0, tick: 0, redrawT: 0, fx: null };
+  const tmp = new THREE.Vector3();
+  const finish = () => {
+    sit.done = true; off(); releaseTool(); body.effect = null; if (S.fx) S.fx.dispose(); body.setMarkerColor(0x3ddc97); body.hl = false;
+    Sound.correct(); panel.redraw({ mode: 'done', k: 1 });
+    tools.forEach(t => { if (!t.hidden) hideTool(t); }); Drag.tools = []; Drag.focus = null;
+    const last = i === G.phys.sits.length - 1;
+    const nb = button(last ? 'Ver resumen' : 'Siguiente situación', { parent: screen, pos: [-.42, .84, -2.7], w: 1.15, h: .23, onClick: () => { body.spin = true; last ? showPhysSummary() : showSituation(i + 1); } });
+    appear(nb, 300);
+  };
+  const off = onTick(dt => {
+    if (sit.done) return;
+    const held = Drag.held, mw = Drag.focus();
+    const d = held ? held.g.getWorldPosition(tmp).distanceTo(mw) : 9;
+    const near = d < nearD; body.hl = d < .45;
+    if (near && !S.decided) {
+      sit.attempts++;
+      if (held.kind === sit.correct) {
+        S.decided = true; sit.firstTry = sit.attempts === 1; Sound.correct();
+        tools.forEach(t => { if (t !== held) hideTool(t); });
+        S.fx = treatmentFX(body, sit.correct, true); body.effect = S.fx.step; S.fx.holder.visible = false;
+        panel.redraw({ mode: 'applying', k: 0, instr: keep, instrCol: '#ffffff' });
+      } else {
+        Sound.wrong(); haptic(.6, 120); sit.wrongs.push(held.kind); releaseTool(); setToolDisabled(held);
+        panel.redraw({ mode: 'wrong', wrong: held.kind });
+      }
+    }
+    if (S.decided) {
+      let rate = 0;
+      if (near && held && held.kind === sit.correct) rate = sit.correct === 'masaje' && !easy ? clamp(held.speed / .5, 0, 1) : 1;
+      S.fx.holder.visible = rate > .15;
+      S.progress = clamp(S.progress + dt * rate / DUR, 0, 1);
+      S.tick -= dt; if (rate > .15 && S.tick <= 0) { S.tick = .45; Sound.applyTick(S.progress); haptic(.25, 40); }
+      S.redrawT -= dt;
+      if (S.redrawT <= 0) {
+        S.redrawT = .12;
+        const instr = rate > .15 ? keep : !held ? 'Agarrá de nuevo la herramienta y llevala a la zona marcada' : sit.correct === 'masaje' && near && !easy ? 'Mové la pelota en círculos para hacer el masaje' : 'Acercá la herramienta a la zona marcada';
+        panel.redraw({ k: S.progress, instr, instrCol: rate > .15 ? '#ffffff' : C.yellow });
+      }
+      body.lerpMarker(0xff4d5e, 0x3ddc97, S.progress);
+      if (S.progress >= 1) finish();
+    }
   });
-}
-async function applyTreatment(sit, panel, i) {
-  const tr = TREAT[sit.correct];
-  body.spin = false;
-  // gira el cuerpo para mostrar la zona al usuario
-  const fig = body.figure; const target = sit.pos[2] < -.03 ? Math.PI : 0; const from = fig.rotation.y % (Math.PI * 2);
-  let to = target; while (to - from > Math.PI) to -= Math.PI * 2; while (to - from < -Math.PI) to += Math.PI * 2;
-  tween(900, k => fig.rotation.y = lerp(from, to, k));
-  const fx = treatmentFX(body, sit.correct); body.effect = fx.step;
-  panel.redraw({ mode: 'applying', k: 0 });
-  let acc = 0;
-  await tween(6500, k => {
-    acc += 1; if (acc % 3 === 0 || k === 1) panel.redraw({ k });
-    body.lerpMarker(0xff4d5e, 0x3ddc97, k);
-  }, ease.lin);
-  sit.done = true; body.effect = null; fx.dispose(); body.setMarkerColor(0x3ddc97);
-  panel.redraw({ mode: 'done', k: 1 }); Sound.correct();
-  const last = i === G.phys.sits.length - 1;
-  screen.querySelectorAll('.choice').forEach(el => vanish(el, 350));
-  const nb = button(last ? 'VER RESUMEN  →' : `SIGUIENTE SITUACIÓN  →`, { parent: screen, pos: [-.42, .84, -2.7], w: 1.15, h: .23, onClick: () => { body.spin = true; last ? showPhysSummary() : showSituation(i + 1); } });
-  appear(nb, 300);
 }
 function showPhysSummary() {
   makeScreen(); body.hideMarker(); body.spin = true;
@@ -1551,7 +1793,7 @@ function showPhysSummary() {
     });
     wrap(c, 'Trabajo invisible: elegir bien entre frío, calor o descarga reduce el riesgo de lesión y acelera la vuelta al entrenamiento.', 48, H - 62, W - 96, 30, { size: 21, weight: 500, color: '#c9d6e6', italic: true });
   }, { parent: screen, pos: [-.4, 1.84, -2.75] });
-  const b = button('CONTINUAR · ETAPA 2  →', { parent: screen, pos: [-.4, .88, -2.72], w: 1.2, h: .22, onClick: () => startNutrition() });
+  const b = button('Continuar a la etapa 2', { parent: screen, pos: [-.4, .88, -2.72], w: 1.2, h: .22, onClick: () => startNutrition() });
   appear(panel); appear(b, 300);
 }
 
@@ -1614,7 +1856,7 @@ function showNutriIntro() {
     txt(c, 'ELEGÍ LO QUE TU CUERPO NECESITA PARA RECUPERARSE', 52, 428, { size: 22, weight: 900, color: C.yellow, ls: 1 });
     wrap(c, 'Seleccioná los alimentos que pasan a tu alrededor. Mantené las tres barras en la zona verde (60–90%): lo que falta baja el rendimiento, lo que sobra también desequilibra. Algunos alimentos no son prioritarios. Los niveles bajan con el tiempo y todo se acelera.', 52, 464, W - 104, 29, { size: 20, weight: 500, color: C.text });
   }, { parent: screen, pos: [0, 1.84, -2.75] });
-  const b = button('EMPEZAR MINIJUEGO  →', { parent: screen, pos: [0, .9, -2.72], w: 1.2, h: .23, variant: 'warm', onClick: () => runNutritionGame() });
+  const b = button('Empezar minijuego', { parent: screen, pos: [0, .9, -2.72], w: 1.2, h: .23, variant: 'warm', onClick: () => runNutritionGame() });
   appear(panel); appear(b, 300);
 }
 function drawHUD(c, W, H, s) {
@@ -1681,7 +1923,8 @@ function setGazeFuse(ms) {
 async function runNutritionGame() {
   const scr = makeScreen();
   setHint('Seleccioná (clic / gatillo / mirada) los alimentos que tu cuerpo necesita · Mantené las barras en verde');
-  const N = { t: 0, dur: 60, level: 1, E: 30, H: 22, R: 18, items: new Set(), spawnT: 1, good: 0, bad: 0, missed: 0, over: 0, balance: 0, running: false, history: [] };
+  const pace = Access.get('calmPace') ? .6 : 1;
+  const N = { t: 0, dur: Access.get('calmPace') ? 50 : 35, level: 1, E: 30, H: 22, R: 18, items: new Set(), spawnT: 1, good: 0, bad: 0, missed: 0, over: 0, balance: 0, running: false, history: [] };
   G.nutri = N;
   const hud = canvasPlane(3.3, .76, drawHUD, { parent: scr, pos: [0, 2.72, -3.6], rot: [14, 0, 0], state: { left: N.dur, level: 1, E: N.E, H: N.H, R: N.R, good: 0, bad: 0 } });
   appear(hud);
@@ -1694,14 +1937,15 @@ async function runNutritionGame() {
     if (v.length === 1) await wait(150);
   }
   removeEl(cd);
-  Sound.beatStart(); N.running = true; setGazeFuse(750);
+  Sound.beatStart(); N.running = true; setGazeFuse(750 / pace);
   const banner = canvasPlane(2.4, .4, (c, W, H, s) => {
     rr(c, 6, 6, W - 12, H - 12, (H - 12) / 2); c.fillStyle = 'rgba(5,11,22,.85)'; c.fill(); c.strokeStyle = C.yellow; c.lineWidth = 4; c.stroke();
     txt(c, s.v, W / 2, H * .64, { size: 50, weight: 900, color: C.yellow, align: 'center' });
   }, { parent: scr, pos: [0, 2.15, -3.2], state: { v: '' }, order: 45 });
   banner.object3D.visible = false;
   const showBanner = async v => { banner.redraw({ v }); banner.object3D.visible = true; banner.ui.mat.opacity = 0; await tween(300, k => banner.ui.mat.opacity = k); await wait(1300); await tween(400, k => banner.ui.mat.opacity = 1 - k); banner.object3D.visible = false; };
-  const CFG = { 1: { spawn: 1.45, speed: 1.0, badP: .26, decay: .45 }, 2: { spawn: 1.0, speed: 1.45, badP: .32, decay: .65 }, 3: { spawn: .68, speed: 1.95, badP: .38, decay: .85 } };
+  // las barras bajan rápido; con "Ritmo tranquilo" todo va más lento
+  const CFG = { 1: { spawn: 1.45, speed: 1.0 * (pace < 1 ? .75 : 1), badP: .26, decay: 1.1 * pace }, 2: { spawn: 1.0, speed: 1.45 * (pace < 1 ? .75 : 1), badP: .32, decay: 1.5 * pace }, 3: { spawn: .68, speed: 1.95 * (pace < 1 ? .75 : 1), badP: .38, decay: 1.9 * pace } };
   const byCat = { E: FOODS.filter(f => f.good && f.E >= Math.max(f.H, f.R)), H: FOODS.filter(f => f.good && f.H > f.E && f.H >= f.R), R: FOODS.filter(f => f.good && f.R > f.E && f.R > f.H) };
   const badFoods = FOODS.filter(f => !f.good);
   const spawn = cfg => {
@@ -1735,8 +1979,8 @@ async function runNutritionGame() {
   onTick((dt, time) => {
     if (!N.running) return;
     N.t += dt; const left = N.dur - N.t;
-    const lvl = N.t < 20 ? 1 : N.t < 40 ? 2 : 3; N.level = lvl;
-    if (lvl !== lastLevel) { lastLevel = lvl; Sound.level(); Sound.beatLevel(lvl); showBanner(lvl === 2 ? 'NIVEL 2 · ¡Más rápido!' : 'NIVEL 3 · ¡Máxima presión!'); setGazeFuse(lvl === 3 ? 550 : 650); }
+    const lvl = N.t < N.dur / 3 ? 1 : N.t < N.dur * 2 / 3 ? 2 : 3; N.level = lvl;
+    if (lvl !== lastLevel) { lastLevel = lvl; Sound.level(); Sound.beatLevel(lvl); showBanner(lvl === 2 ? 'NIVEL 2 · ¡Más rápido!' : 'NIVEL 3 · ¡Máxima presión!'); setGazeFuse((lvl === 3 ? 550 : 650) / pace); }
     const cfg = CFG[lvl];
     N.E = clamp(N.E - cfg.decay * dt, 0, 100); N.H = clamp(N.H - cfg.decay * 1.15 * dt, 0, 100); N.R = clamp(N.R - cfg.decay * .75 * dt, 0, 100);
     if ([N.E, N.H, N.R].every(v => v >= ZMIN && v <= ZMAX)) N.balance += dt;
@@ -1781,14 +2025,12 @@ function showNutriResults() {
     stats.forEach(([v, l], i) => { const x = 52 + i * (cw + 12), y = 408; rr(c, x, y, cw, 84, 16); c.fillStyle = 'rgba(255,255,255,.05)'; c.fill(); txt(c, String(v), x + 18, y + 44, { size: 32, weight: 900 }); txt(c, l, x + 18, y + 70, { size: 16, weight: 600, color: C.muted }); });
     wrap(c, 'Trabajo invisible: en las 2 horas post-partido combiná carbohidratos + proteínas y tomá líquido de a sorbos hasta reponer lo perdido (≈1,5 L por cada kg de peso perdido).', 52, 540, W - 104, 29, { size: 20, weight: 500, color: '#c9d6e6', italic: true });
   }, { parent: screen, pos: [0, 1.86, -2.75] });
-  const b1 = button('REINTENTAR', { parent: screen, pos: [-.62, .9, -2.72], w: .95, h: .22, variant: 'secondary', onClick: () => runNutritionGame() });
-  const b2 = button('CONTINUAR · ETAPA 3  →', { parent: screen, pos: [.52, .9, -2.72], w: 1.2, h: .22, onClick: () => startCalm() });
+  const b1 = button('Reintentar', { parent: screen, pos: [-.62, .9, -2.72], w: .95, h: .22, variant: 'secondary', onClick: () => runNutritionGame() });
+  const b2 = button('Continuar a la etapa 3', { parent: screen, pos: [.52, .9, -2.72], w: 1.2, h: .22, onClick: () => startCalm() });
   appear(panel); appear(b1, 250); appear(b2, 320);
 }
 
 /* ---------- 5. Etapa 3: Vuelta a la calma ---------- */
-const Input = { holding: false, used: false };
-function setHold(v) { Input.holding = v; if (v) Input.used = true; }
 async function startCalm() {
   Sound.beatStop(1);
   await transition(async () => {
@@ -1806,88 +2048,135 @@ function showCalmIntro() {
     stepper(c, W - 410, 58, 370, 2, C.purple);
     txt(c, 'Vuelta a la calma', 52, 146, { size: 54, weight: 900 });
     wrap(c, 'El movimiento baja, la música baja. Volviste a la cancha, pero ahora está en silencio. Tu sistema nervioso también necesita recuperarse.', 52, 196, W - 104, 33, { size: 23, weight: 500, color: '#c9d6e6' });
-    txt(c, 'Seguí el ritmo de la esfera luminosa:', 52, 300, { size: 24, weight: 800 });
-    txt(c, 'INHALÁ', 52, 350, { size: 28, weight: 900, color: C.teal }); txt(c, 'cuando la esfera crece (4 s)', 180, 350, { size: 22, weight: 600, color: C.text });
-    txt(c, 'EXHALÁ', 52, 390, { size: 28, weight: 900, color: C.purple }); txt(c, 'cuando la esfera se achica (6 s)', 180, 390, { size: 22, weight: 600, color: C.text });
-    wrap(c, 'Web: mantené presionado clic o ESPACIO mientras inhalás y soltá al exhalar. VR: mantené el gatillo. Solo con la mirada: respirá con la esfera.', 52, 448, W - 104, 28, { size: 19, weight: 500, color: C.muted });
-    txt(c, '6 ciclos · 1 minuto', 52, H - 34, { size: 19, weight: 700, color: C.purple });
+    txt(c, 'Seguí el camino luminoso con tu puntero:', 52, 300, { size: 24, weight: 800 });
+    txt(c, 'INHALÁ', 52, 350, { size: 28, weight: 900, color: C.teal }); txt(c, 'el camino sube: llevá el punto hacia arriba (4 s)', 180, 350, { size: 22, weight: 600, color: C.text });
+    txt(c, 'EXHALÁ', 52, 390, { size: 28, weight: 900, color: C.purple }); txt(c, 'el camino baja: llevá el punto hacia abajo (6 s)', 180, 390, { size: 22, weight: 600, color: C.text });
+    wrap(c, 'PC: mové el mouse (sin hacer clic). Celular: deslizá el dedo. VR: apuntá con el control o con la mirada. Si te salís del camino, tu respiración se agita' + (Access.get('reduceMotion') ? ' y el borde se pone rojo.' : ', la vista tiembla y el borde se pone rojo.'), 52, 448, W - 104, 28, { size: 19, weight: 500, color: C.muted });
+    txt(c, '3 ciclos · 30 segundos', 52, H - 34, { size: 19, weight: 700, color: C.purple });
   }, { parent: screen, pos: [0, 1.8, -2.75] });
-  const b = button('COMENZAR RESPIRACIÓN', { parent: screen, pos: [0, .92, -2.72], w: 1.2, h: .22, onClick: () => runBreathing() });
+  const b = button('Comenzar respiración', { parent: screen, pos: [0, .92, -2.72], w: 1.2, h: .22, onClick: () => runBreathing() });
   appear(panel); appear(b, 300);
 }
+// Curva de respiración: sube al inhalar (4 s) y baja al exhalar (6 s)
 async function runBreathing() {
-  const scr = makeScreen();
-  setHint('INHALÁ cuando la esfera crece · EXHALÁ cuando se achica · Mantené clic/ESPACIO/gatillo mientras inhalás');
-  const IN = 4, OUT = 6, CYCLES = 6, TOTAL = (IN + OUT) * CYCLES;
-  const S = { t: 0, samples: 0, match: 0, usedAtStart: Input.used, hr: 104, cycle: 0, phase: null };
-  Input.used = false;
-  // esfera luminosa
-  const orbG = new THREE.Group(); orbG.position.set(0, 1.55, -2.9); scr.object3D.add(orbG);
-  const coreM = new THREE.MeshBasicMaterial({ color: 0x9ff0ff, transparent: true, opacity: .92 });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), coreM); orbG.add(core);
-  const shellM = new THREE.MeshBasicMaterial({ color: 0x22f0bf, transparent: true, opacity: .18, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
-  const shell = new THREE.Mesh(new THREE.SphereGeometry(1.35, 32, 24), shellM); orbG.add(shell);
-  const glow = glowSprite(0x22f0bf, 3, .8); orbG.add(glow);
-  const halo = glowSprite(0xb388ff, 7, .25); orbG.add(halo);
-  const n = 160, pp = new Float32Array(n * 3), pd = [];
-  for (let i = 0; i < n; i++) pd.push({ th: rand(0, Math.PI * 2), ph: Math.acos(rand(-1, 1)), r: rand(1.4, 2.2), s: rand(.2, .6) });
-  const pgeo = new THREE.BufferGeometry(); pgeo.setAttribute('position', new THREE.BufferAttribute(pp, 3));
-  const pts = new THREE.Points(pgeo, new THREE.PointsMaterial({ color: 0xcfe9ff, size: .035, map: dotTex, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending })); orbG.add(pts);
-  orbG.scale.setScalar(.001);
-  const label = canvasPlane(1.8, .42, (c, W, H, s) => {
-    txt(c, s.word, W / 2, H * .62, { size: 92, weight: 900, color: s.col, align: 'center', ls: 10, shadow: hexA(s.col, .7) });
-    if (s.sec) txt(c, s.sec, W / 2, H * .92, { size: 26, weight: 700, color: C.muted, align: 'center' });
-  }, { parent: scr, pos: [0, 2.5, -2.9], state: { word: 'PREPARATE', col: '#ffffff', sec: '' }, order: 30 });
+  const scr = makeScreen(); lookHold.breath = true; refreshLook();
+  setHint('Seguí el camino con el puntero: sube al INHALAR y baja al EXHALAR · Si te salís, te agitás');
+  const IN = 4, OUT = 6, CYCLES = 3, TOTAL = (IN + OUT) * CYCLES, calmP = Access.get('calmPace');
+  const TW = 2.4, TH = 1.0, PAST = 1.5, FUTURE = 4.5, YR = .36, TOL = calmP ? .14 : .085, GAIN = calmP ? .06 : .12;
+  const xPlay = -TW / 2 + PAST / (PAST + FUTURE) * TW;
+  const curve = t => { if (t < 0) return 0; const ph = t % (IN + OUT); return ph < IN ? ease.sine(ph / IN) : 1 - ease.sine((ph - IN) / OUT); };
+  const Y = t => -YR + curve(t) * 2 * YR;
+  // ---- pista ----
+  const track = canvasPlane(TW, TH, (c, W, H, s) => {
+    rr(c, 4, 4, W - 8, H - 8, 30); c.fillStyle = 'rgba(5,10,26,.84)'; c.fill(); c.lineWidth = 6; c.strokeStyle = s.bc; c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.05)'; for (let g = 1; g < 6; g++) c.fillRect(20, H * g / 6, W - 40, 1.5);
+    txt(c, 'INHALÁ', 26, 42, { size: 18, weight: 800, color: hexA(C.teal, .8), ls: 2 });
+    txt(c, 'EXHALÁ', 26, H - 20, { size: 18, weight: 800, color: hexA(C.purple, .8), ls: 2 });
+    const px = (xPlay + TW / 2) / TW * W; c.fillStyle = 'rgba(255,255,255,.22)'; c.fillRect(px - 1, 12, 2, H - 24);
+  }, { parent: scr, pos: [0, 1.78, -2.6], state: { bc: 'rgba(179,136,255,.55)' }, big: false });
+  // camino (cinta que se actualiza cada cuadro): pasado tenue, futuro brillante
+  const NP = 90, RW = calmP ? .034 : .022;
+  const rpos = new Float32Array(NP * 2 * 3), rcol = new Float32Array(NP * 2 * 4), ridx = [];
+  for (let k = 0; k < NP - 1; k++) { const a = k * 2; ridx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const cPur = new THREE.Color(C.purple), cTeal = new THREE.Color(C.teal), cc = new THREE.Color(), uNow = PAST / (PAST + FUTURE);
+  for (let k = 0; k < NP; k++) {
+    const u = k / (NP - 1); let a;
+    if (u < uNow) { cc.copy(cPur).lerp(cTeal, u / uNow); a = lerp(.25, .9, u / uNow); } else { cc.copy(cTeal); a = lerp(.9, .55, (u - uNow) / (1 - uNow)); }
+    for (let j = 0; j < 2; j++) rcol.set([cc.r, cc.g, cc.b, a], (k * 2 + j) * 4);
+  }
+  const rgeo = new THREE.BufferGeometry(); rgeo.setAttribute('position', new THREE.BufferAttribute(rpos, 3)); rgeo.setAttribute('color', new THREE.BufferAttribute(rcol, 4)); rgeo.setIndex(ridx);
+  const ribbon = new THREE.Mesh(rgeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide, fog: false }));
+  ribbon.renderOrder = 12; ribbon.frustumCulled = false; track.object3D.add(ribbon);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.045, .058, 40), new THREE.MeshBasicMaterial({ color: C.teal, transparent: true, depthTest: false, fog: false })); ring.renderOrder = 13; track.object3D.add(ring);
+  const ringGlow = glowSprite(new THREE.Color(C.teal).getHex(), .3, .5); ringGlow.material.depthTest = false; ringGlow.renderOrder = 12; track.object3D.add(ringGlow);
+  const meMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, fog: false });
+  const me = new THREE.Mesh(new THREE.CircleGeometry(.03, 32), meMat); me.renderOrder = 14; track.object3D.add(me);
+  // palabras debajo del camino y barra de información
+  const lab = canvasPlane(1.8, .42, (c, W, H, s) => {
+    txt(c, s.word, W / 2, 104, { size: s.word.length > 10 ? 68 : 92, weight: 900, color: s.col, align: 'center', shadow: hexA(s.col, .55) });
+    txt(c, s.sec, W / 2, 158, { size: 26, weight: 700, color: s.secCol, align: 'center', maxW: W - 20 });
+  }, { parent: scr, pos: [0, 1.03, -2.6], state: { word: 'PREPARATE', col: '#ffffff', sec: 'Mové el puntero hasta el anillo', secCol: C.muted }, order: 30, big: false });
   const info = canvasPlane(2.4, .34, (c, W, H, s) => {
-    rr(c, 6, 6, W - 12, H - 12, (H - 12) / 2); c.fillStyle = 'rgba(5,11,22,.72)'; c.fill(); c.strokeStyle = 'rgba(179,136,255,.5)'; c.lineWidth = 2; c.stroke();
+    rr(c, 6, 6, W - 12, H - 12, (H - 12) / 2); c.fillStyle = 'rgba(5,11,22,.75)'; c.fill(); c.strokeStyle = 'rgba(179,136,255,.5)'; c.lineWidth = 2; c.stroke();
     for (let i = 0; i < CYCLES; i++) { circle(c, 70 + i * 34, H / 2, 10); c.fillStyle = i < s.cycle ? C.purple : i === s.cycle ? 'rgba(179,136,255,.45)' : 'rgba(255,255,255,.15)'; c.fill(); }
     txt(c, `Ciclo ${Math.min(s.cycle + 1, CYCLES)} de ${CYCLES}`, 70 + CYCLES * 34 + 10, H / 2 + 9, { size: 25, weight: 800 });
-    txt(c, s.sync, W * .6, H / 2 + 9, { size: 25, weight: 800, color: C.teal, align: 'center' });
+    const ac = '#' + new THREE.Color(C.teal).lerp(new THREE.Color(C.red), s.agit).getHexString();
+    txt(c, s.done ? s.doneTxt : `Agitación ${Math.round(s.agit * 100)}%`, W * .6, H / 2 + 9, { size: 25, weight: 800, color: s.done ? s.doneCol : ac, align: 'center' });
     iconHeart(c, W - 190, H / 2, 16, C.red); txt(c, `${Math.round(s.hr)} lpm`, W - 162, H / 2 + 9, { size: 25, weight: 800 });
-  }, { parent: scr, pos: [0, .72, -2.8], rot: [-12, 0, 0], state: { cycle: 0, sync: 'Sincronía —', hr: S.hr } });
-  appear(label); appear(info, 200);
-  await tween(1500, k => orbG.scale.setScalar(Math.max(.001, .32 * k)), ease.out);
-  label.redraw({ word: 'PREPARATE', sec: 'Soltá los hombros · Apoyá bien los pies' }); await wait(2200);
-  if (!scr.parentNode) return;
-  const c1 = new THREE.Color(0x9ff0ff), c2 = new THREE.Color(0xd9c4ff), tmp = new THREE.Color();
-  const g1 = new THREE.Color(0x22f0bf), g2 = new THREE.Color(0xb388ff);
-  let infoT = 0;
-  const hapt = () => { ['#handL', '#handR'].forEach(id => { try { const tc = $(id).components['tracked-controls']; const ha = tc && tc.controller && tc.controller.gamepad && tc.controller.gamepad.hapticActuators; if (ha && ha[0]) ha[0].pulse(.25, 60); } catch (e) { } }); };
-  const finished = new Promise(res => {
-    onTick((dt, time) => {
-      S.t += dt; const t = Math.min(S.t, TOTAL);
-      const cyc = Math.min(CYCLES - 1, Math.floor(t / (IN + OUT))); const ph = t - cyc * (IN + OUT); const inhale = ph < IN;
-      const phaseKey = cyc + (inhale ? 'i' : 'e');
-      if (phaseKey !== S.phase && S.t < TOTAL) { S.phase = phaseKey; S.cycle = cyc; Sound.breath(inhale, inhale ? IN : OUT); hapt(); }
-      const k = inhale ? ease.sine(ph / IN) : 1 - ease.sine((ph - IN) / OUT);
-      const sc = lerp(.32, .74, k); orbG.scale.setScalar(sc);
-      tmp.copy(c2).lerp(c1, k); coreM.color.copy(tmp); tmp.copy(g2).lerp(g1, k); shellM.color.copy(tmp); glow.material.color.copy(tmp);
-      glow.scale.setScalar(2.6 + k * 1.2); halo.material.opacity = .15 + k * .2;
-      pd.forEach((d, i) => { d.th += dt * d.s * .4; const r = d.r * (inhale ? lerp(1.25, 1, ph / IN) : lerp(1, 1.25, (ph - IN) / OUT)); pp[i * 3] = Math.sin(d.ph) * Math.cos(d.th) * r; pp[i * 3 + 1] = Math.cos(d.ph) * r; pp[i * 3 + 2] = Math.sin(d.ph) * Math.sin(d.th) * r; });
-      pgeo.attributes.position.needsUpdate = true;
-      const phStart = inhale ? ph : ph - IN; if (phStart > .6) { S.samples++; if (Input.holding === inhale) S.match++; }
-      S.hr = lerp(104, 64, ease.out(t / TOTAL)) + Math.sin(time * 1.3) * 1.2;
-      infoT -= dt;
-      if (infoT <= 0) {
-        infoT = .12; const secs = Math.ceil(inhale ? IN - ph : IN + OUT - ph);
-        label.redraw({ word: inhale ? 'INHALÁ' : 'EXHALÁ', col: inhale ? C.teal : C.purple, sec: `${secs}` });
-        const sync = Input.used && S.samples > 0 ? `Sincronía ${Math.round(S.match / S.samples * 100)}%` : 'Modo guiado';
-        info.redraw({ cycle: cyc, sync, hr: S.hr });
-      }
-      applyLight(LIGHT.calm, Object.assign({}, LIGHT.calm, { flood: .06, hemi: .32 }), t / TOTAL);
-      if (S.t >= TOTAL) res();
-    }, scr);
-  });
+  }, { parent: scr, pos: [0, .64, -2.6], rot: [-12, 0, 0], state: { cycle: 0, agit: 0, hr: 104 }, big: false });
+  appear(track); appear(lab, 100); appear(info, 200);
+
+  let yUser = -YR, T = -3, hr = 104, shake = 0, agit = 0, samples = 0, onPath = 0, phase = '', failed = false, infoT = 0, ended = false;
+  const plane = new THREE.Plane(), nrm = new THREE.Vector3(), wpos = new THREE.Vector3(), hit = new THREE.Vector3(), wq = new THREE.Quaternion();
+  const readPointer = dt => {
+    const o = track.object3D; o.getWorldPosition(wpos); o.getWorldQuaternion(wq); nrm.set(0, 0, 1).applyQuaternion(wq);
+    plane.setFromNormalAndCoplanarPoint(nrm, wpos);
+    const ray = pointerRay(); if (ray.intersectPlane(plane, hit)) { const lp = o.worldToLocal(hit.clone()); yUser = lerp(yUser, clamp(lp.y, -YR - .1, YR + .1), 1 - Math.exp(-dt * 18)); }
+  };
+  const draw = () => {
+    for (let k = 0; k < NP; k++) {
+      const u = k / (NP - 1), tt = T - PAST + u * (PAST + FUTURE), x = -TW / 2 + u * TW, y = Y(tt);
+      rpos.set([x, y + RW / 2, .01, x, y - RW / 2, .01], k * 6);
+    }
+    rgeo.attributes.position.needsUpdate = true;
+    const yt = Y(T); ring.position.set(xPlay, yt, .012); ringGlow.position.set(xPlay, yt, .011); me.position.set(xPlay, yUser, .015);
+  };
+  const white = new THREE.Color(0xffffff), orange = new THREE.Color(C.orange), purA = [179, 136, 255, .55], redA = [255, 77, 94, 1];
   Sound.padLevel(.32, 60);
-  await finished;
-  if (!scr.parentNode) return;
-  G.calm = { cycles: CYCLES, guided: !Input.used, sync: S.samples ? Math.round(S.match / S.samples * 100) : 0, hr: Math.round(S.hr), done: true };
-  info.redraw({ cycle: CYCLES, sync: G.calm.guided ? 'Modo guiado' : `Sincronía ${G.calm.sync}%`, hr: S.hr });
-  label.redraw({ word: 'MUY BIEN', col: '#ffffff', sec: 'Tu respiración y tu pulso volvieron a la calma' });
-  await tween(2200, k => { orbG.scale.setScalar(lerp(.32, .001, k)); orbG.position.y = 1.55 + k * .6; }, ease.in);
-  await wait(800);
-  vanish(label, 800); vanish(info, 800);
-  // el entorno vuelve progresivamente a la cancha, ahora completamente tranquila
+  await new Promise(res => onTick((dt, time) => {
+    if (ended) return;
+    if (T < 0) {
+      T += dt; readPointer(dt); draw(); infoT -= dt;
+      if (infoT <= 0) { infoT = .2; lab.redraw({ word: 'PREPARATE', col: '#ffffff', sec: `Ubicá tu punto en el anillo · empieza en ${Math.max(1, Math.ceil(-T))}`, secCol: C.muted }); }
+      return;
+    }
+    T += dt; const t = Math.min(T, TOTAL);
+    const cyc = Math.min(CYCLES - 1, Math.floor(t / (IN + OUT))), ph = t - cyc * (IN + OUT), inhale = ph < IN;
+    const key = cyc + (inhale ? 'i' : 'e'); if (key !== phase) { phase = key; Sound.breath(inhale, inhale ? IN : OUT); haptic(); }
+    readPointer(dt); draw();
+    const err = Math.abs(yUser - Y(T)); samples++; if (err < TOL) onPath++;
+    // fuera del camino: la cámara tiembla como si te agitaras
+    const want = clamp((err - TOL) / .22, 0, 1);
+    shake = lerp(shake, want, 1 - Math.exp(-dt * (want > shake ? 6 : 2.5))); Shake = shake;
+    meMat.color.copy(white).lerp(orange, shake);
+    // agitación acumulada: al 100 % la misión falla
+    agit = clamp(agit + dt * (shake > .4 ? shake * GAIN : -.04), 0, 1);
+    hr = lerp(104, 64, ease.out(t / TOTAL)) + shake * 18 + Math.sin(time * 1.3) * 1.2;
+    infoT -= dt;
+    if (infoT <= 0) {
+      infoT = .12; const secs = Math.ceil(inhale ? IN - ph : IN + OUT - ph);
+      lab.redraw({ word: inhale ? 'INHALÁ' : 'EXHALÁ', col: inhale ? C.teal : C.purple, sec: shake > .35 ? 'Volvé al camino… respirá tranquilo' : String(secs), secCol: shake > .35 ? C.orange : C.muted });
+      info.redraw({ cycle: cyc, agit, hr });
+      const bc = purA.map((v, i) => lerp(v, redA[i], shake)); track.redraw({ bc: `rgba(${bc[0] | 0},${bc[1] | 0},${bc[2] | 0},${bc[3].toFixed(2)})` });
+    }
+    applyLight(LIGHT.calm, Object.assign({}, LIGHT.calm, { flood: .06, hemi: .32 }), t / TOTAL);
+    if (agit >= 1) { failed = true; ended = true; res(); } else if (T >= TOTAL) { ended = true; res(); }
+  }, scr));
+  Shake = 0;
+  if (!scr.parentNode) { lookHold.breath = false; refreshLook(); return; }
+  const sync = Math.round(onPath * 100 / Math.max(1, samples));
+  if (failed) {
+    Sound.wrong(); haptic(.7, 200);
+    lab.redraw({ word: 'MISIÓN FALLIDA', col: C.red, sec: 'Te agitaste demasiado: tu cuerpo no logró volver a la calma', secCol: '#ffb3bb' });
+    info.redraw({ cycle: Math.min(CYCLES - 1, Math.floor(T / (IN + OUT))), agit: 1, hr, done: true, doneTxt: 'Agitación 100%', doneCol: C.red });
+    lookHold.breath = false; refreshLook();
+    const choice = await new Promise(res => {
+      const bR = button('Reintentar', { parent: scr, pos: [-.62, .36, -2.5], w: 1.05, h: .22, onClick: () => res('retry') });
+      const bC = button('Continuar igual', { parent: scr, pos: [.62, .36, -2.5], w: 1.05, h: .22, variant: 'secondary', onClick: () => { vanish(bR); vanish(bC); res('go'); } });
+      appear(bR, 300); appear(bC, 400);
+    });
+    if (choice === 'retry') { runBreathing(); return; }
+    G.calm = { cycles: CYCLES, failed: true, sync, hr: Math.round(hr), done: true };
+  } else {
+    G.calm = { cycles: CYCLES, failed: false, sync, hr: Math.round(hr), done: true };
+    info.redraw({ cycle: CYCLES, agit: 0, hr, done: true, doneTxt: `En el camino ${sync}%`, doneCol: C.teal });
+    lab.redraw({ word: 'TERMINADO', col: '#ffffff', sec: 'Tu respiración y tu pulso volvieron a la calma', secCol: C.muted });
+  }
+  lookHold.breath = false; refreshLook();
+  await wait(1600); if (!scr.parentNode) return;
+  vanish(track, 800); vanish(lab, 800); vanish(info, 800);
+  await wait(1000);
+  // el entorno vuelve de a poco a la cancha, ahora completamente tranquila
   setHint('');
   const skyFrom = ENV.sky.cur;
   await tween(5200, k => { ENV.sky.blend(skyFrom, SKY.dawn, k); applyLight(Object.assign({}, LIGHT.calm, { flood: .06, hemi: .32 }), LIGHT.dawn, k); }, ease.inOut);
@@ -1899,33 +2188,32 @@ async function runBreathing() {
 function showFinal() {
   const scr = makeScreen();
   Sound.finalChord(); Sound.padLevel(.4, 3);
-  setHint('Recuperación completada · Podés volver a jugar con nuevas situaciones');
-  const P = G.phys || { sits: [], firstTry: 0 }, N = G.nutri || { score: 0, stars: 1, good: 0 }, K = G.calm || { cycles: 6, guided: true, hr: 64 };
+  setHint('Recuperación completada · Mirá cómo se nota en tu próximo partido');
+  const P = G.phys || { sits: [], firstTry: 0 }, N = G.nutri || { score: 0, stars: 1, good: 0 }, K = G.calm || { cycles: 3, sync: 0, hr: 64 };
   const rows = [
-    ['Recuperación física', `${P.sits.length} situaciones resueltas · ${P.firstTry}/3 a la primera · ${[...new Set(P.sits.map(s => TREAT[s.correct].label.toLowerCase()))].join(', ')}`, C.red],
-    ['Recuperación nutricional', `Equilibrio ${N.score}% · ${'★'.repeat(N.stars)}${'☆'.repeat(3 - N.stars)} · ${N.good} elecciones prioritarias`, C.yellow],
-    ['Vuelta a la calma', `${K.cycles} ciclos de respiración · ${K.guided ? 'modo guiado' : 'sincronía ' + K.sync + '%'} · FC ${K.hr} lpm`, C.purple],
+    ['Recuperación física', `${P.sits.length} situaciones resueltas · ${P.firstTry || 0}/3 a la primera · ${[...new Set(P.sits.map(s => TREAT[s.correct].label.toLowerCase()))].join(', ')}`, C.red, false],
+    ['Recuperación nutricional', `Equilibrio ${N.score}% · ${N.stars}/3 estrellas · ${N.good} elecciones prioritarias`, C.yellow, false],
+    ['Vuelta a la calma', `${K.cycles} ciclos de respiración · ${K.sync}% en el camino · FC ${K.hr} lpm`, C.purple, !!K.failed],
   ];
   const panel = canvasPlane(2.7, 1.78, (c, W, H) => {
     panelBg(c, W, H, C.lima);
     txt(c, 'PIKI GAME · FÚTBOL', 56, 64, { size: 19, weight: 800, color: C.lima, ls: 4 });
     stepper(c, W - 420, 60, 380, 3, C.green);
     circle(c, 100, 158, 42); c.fillStyle = C.lima; c.fill(); iconCheck(c, 100, 158, 20, '#04131f', 8);
-    txt(c, 'RECUPERACIÓN COMPLETADA', 164, 178, { size: 56, weight: 900 });
+    txt(c, K.failed ? 'RECUPERACIÓN INCOMPLETA' : 'RECUPERACIÓN COMPLETADA', 164, 178, { size: 56, weight: 900, maxW: W - 220 });
     txt(c, 'Terminaste el trabajo invisible. Tu cuerpo está listo para volver a entrenar.', 58, 244, { size: 23, weight: 600, color: C.teal });
-    rows.forEach(([name, det, col], i) => {
-      const y = 276 + i * 100;
-      rr(c, 56, y, W - 112, 86, 18); c.fillStyle = 'rgba(255,255,255,.05)'; c.fill(); c.strokeStyle = hexA(col, .4); c.lineWidth = 2; c.stroke();
-      c.save(); c.shadowColor = C.green; c.shadowBlur = 16; circle(c, 100, y + 43, 17); c.fillStyle = '#2ecc71'; c.fill(); c.restore();
+    rows.forEach(([name, det, col, fail], i) => {
+      const y = 276 + i * 100, st = fail ? C.red : '#3ddc97';
+      rr(c, 56, y, W - 112, 86, 18); c.fillStyle = 'rgba(8,70,84,.9)'; c.fill(); c.strokeStyle = hexA(col, .4); c.lineWidth = 2; c.stroke();
+      c.save(); c.shadowColor = st; c.shadowBlur = 16; circle(c, 100, y + 43, 17); c.fillStyle = st; c.fill(); c.restore();
       txt(c, name, 136, y + 38, { size: 28, weight: 800 });
       txt(c, det, 136, y + 68, { size: 18, weight: 600, color: C.muted, maxW: W - 460 });
-      txt(c, 'Completada', W - 84, y + 52, { size: 26, weight: 900, color: '#2ecc71', align: 'right' });
+      txt(c, fail ? 'Misión fallida' : 'Completada', W - 84, y + 52, { size: 26, weight: 900, color: st, align: 'right' });
     });
     txt(c, 'Recuperar también es entrenar.', W / 2, H - 42, { size: 30, weight: 700, color: C.lima, align: 'center', italic: true });
   }, { parent: scr, pos: [0, 1.9, -2.85] });
-  const b1 = button('JUGAR DE NUEVO', { parent: scr, pos: [-.6, .88, -2.8], w: 1.05, h: .22, onClick: () => startMatch() });
-  const b2 = button('VOLVER AL INICIO', { parent: scr, pos: [.6, .88, -2.8], w: 1.05, h: .22, variant: 'secondary', onClick: () => goHome() });
-  appear(panel, 0, 900); appear(b1, 500); appear(b2, 600);
+  const b1 = button('Ver tu próximo partido', { parent: scr, pos: [0, .88, -2.8], w: 1.5, h: .24, onClick: () => goNextMatch() });
+  appear(panel, 0, 900); appear(b1, 500);
   // partículas doradas suaves
   const n = 140, arr = new Float32Array(n * 3), d = [];
   for (let i = 0; i < n; i++) { d.push({ x: rand(-8, 8), y: rand(0, 6), z: rand(-10, 2), v: rand(.05, .2), a: rand(0, 6) }); }
@@ -1933,6 +2221,133 @@ function showFinal() {
   const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffe3a3, size: .06, map: dotTex, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending }));
   scr.object3D.add(pts);
   onTick((dt, t) => { d.forEach((p, i) => { p.y += p.v * dt; if (p.y > 7) p.y = 0; arr[i * 3] = p.x + Math.sin(t * .5 + p.a) * .3; arr[i * 3 + 1] = p.y; arr[i * 3 + 2] = p.z; }); geo.attributes.position.needsUpdate = true; }, scr);
+}
+
+/* ---------- 7. El próximo partido · rendimiento según tu recuperación ---------- */
+function ensureSampleResults() {
+  if (!G.phys || !G.phys.sits) { const sits = genSituations(G.match || newMatch()); sits.forEach(s => { s.attempts = 1; s.firstTry = true; }); sits[2].attempts = 2; sits[2].firstTry = false; G.phys = { sits, firstTry: 2 }; }
+  if (!G.nutri) G.nutri = { score: 78, stars: 2, good: 18 };
+  if (!G.calm) G.calm = { cycles: 3, failed: false, sync: 80, hr: 66 };
+}
+function perfScores() {
+  const P = G.phys, N = G.nutri, K = G.calm;
+  const phys = P && P.sits && P.sits.length ? P.sits.reduce((a, s) => a + (s.attempts <= 1 ? 100 : s.attempts === 2 ? 60 : 30), 0) / P.sits.length : 50;
+  const nutri = N ? N.score : 50, calm = !K ? 50 : K.failed ? K.sync * .35 : Math.min(100, K.sync * 1.05);
+  return { phys, nutri, calm, failed: !!(K && K.failed), total: Math.round(clamp(phys * .35 + nutri * .35 + calm * .3, 0, 100)) };
+}
+const subMinute = p => p >= 75 ? 90 : p >= 55 ? 75 : p >= 35 ? 60 : p >= 20 ? 45 : 30;
+function outcome(p) {
+  if (p >= 90) return 'Jugaste los 90 minutos rindiendo al 100%';
+  if (p >= 75) return 'Jugaste los 90 minutos a buen nivel';
+  if (p >= 55) return 'Te cambiaron al minuto 75: se notó el cansancio';
+  if (p >= 35) return 'Saliste al minuto 60 con molestias musculares';
+  if (p >= 20) return 'El DT te sacó en el entretiempo';
+  return 'El DT te cambió al minuto 30 por bajo rendimiento';
+}
+async function goNextMatch() {
+  Sound.padStop(1.5);
+  await transition(() => { setEnv('stadium', 'next'); makeStage(); makeScreen(); Sound.crowdStart(.5); },
+    { card: { kicker: 'UNA SEMANA DESPUÉS', title: 'Tu próximo partido', sub: 'Así se nota en la cancha todo el trabajo invisible', color: C.teal }, hold: 2000 });
+  nextMatch();
+}
+function nextMatch() {
+  ensureSampleResults();
+  const sc = perfScores(), perf = sc.total, sub = subMinute(perf), home = perf >= 75 ? 2 : perf >= 50 ? 1 : 0, away = perf >= 55 ? 0 : 1;
+  ENV.stadium.startNext();
+  Sound.whistle([.7]);
+  showNextMatchPanel(sc, true); // el cartel de rendimiento aparece de una; el partido sigue de fondo
+  setHint('Mirá a tu alrededor: estás jugando el próximo partido · Tu rendimiento depende de cómo te recuperaste');
+  let minute = 0, shown = -1, goal = false, over = false;
+  onTick(dt => {
+    if (over) return;
+    minute = Math.min(sub, minute + dt * 90 / 14); const m = Math.floor(minute);
+    if (m !== shown) {
+      shown = m; const h = home > 0 && m >= 30 ? (home > 1 && m >= 70 ? 2 : 1) : 0;
+      if (h > 0 && !goal) { goal = true; Sound.crowdCheer(); }
+      Object.assign(NEXT, { min: m, h, a: away > 0 && m >= 50 ? 1 : 0, foot: 'Piki FC con el #10 en cancha' }); ENV.stadium.sbDraw('next');
+    }
+    if (minute >= sub) {
+      over = true;
+      if (sub < 90) { Sound.whistle(); NEXT.foot = 'CAMBIO · sale el #10'; ENV.stadium.sbDraw('next'); ENV.stadium.youExit(); }
+      else { Sound.whistle([.7]); Object.assign(NEXT, { min: 90, h: home, a: away, foot: 'FINAL · el #10 jugó los 90 minutos' }); ENV.stadium.sbDraw('next'); Sound.crowdCheer(); }
+    }
+  });
+}
+function showNextMatchPanel(sc, animate) {
+  makeScreen();
+  const perf = sc.total, pc = '#' + new THREE.Color().setHSL(lerp(0, 125, perf / 100) / 360, .75, .55).getHexString();
+  const parts = [['Recuperación física', sc.phys, C.red], ['Recuperación nutricional', sc.nutri, C.yellow], ['Vuelta a la calma', sc.calm, C.purple]];
+  const panel = canvasPlane(2.7, 1.74, (c, W, H, s) => {
+    panelBg(c, W, H, pc);
+    txt(c, 'TU PRÓXIMO PARTIDO · RENDIMIENTO', 56, 64, { size: 19, weight: 800, color: pc, ls: 4 });
+    wrap(c, outcome(perf), 56, 130, W - 112, 54, { size: 46, weight: 900, color: '#fff' });
+    const bx = 56, by = 270, bw = W - 112, bh = 34, v = perf / 100 * s.k;
+    rr(c, bx - 4, by - 4, bw + 8, bh + 8, (bh + 8) / 2); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill();
+    for (let k = 0; k < 40; k++) { const u = k / 40; c.fillStyle = `hsla(${lerp(0, 125, u)},80%,55%,.28)`; c.fillRect(bx + u * bw, by, bw / 40 - 2, bh); }
+    rr(c, bx, by, Math.max(bh, bw * v), bh, bh / 2); c.fillStyle = pc; c.fill();
+    circle(c, bx + bw * v, by - 12, 9); c.fillStyle = '#fff'; c.fill();
+    txt(c, `${Math.round(perf * s.k)}%`, clamp(bx + bw * v, bx + 60, bx + bw - 60), by - 30, { size: 40, weight: 900, color: pc, align: 'center' });
+    wrap(c, 'El DT te cambió por bajo rendimiento', bx, by + bh + 34, 300, 22, { size: 18, weight: 700, color: C.red });
+    wrap(c, 'Jugaste los 90 min rindiendo al 100%', bx + bw, by + bh + 34, 300, 22, { size: 18, weight: 700, color: '#3ddc97', align: 'right' });
+    const cw = (W - 112 - 32) / 3;
+    parts.forEach(([n, val, col], k) => {
+      const x = 56 + k * (cw + 16), y = 410;
+      rr(c, x, y, cw, 110, 18); c.fillStyle = 'rgba(8,70,84,.9)'; c.fill(); c.strokeStyle = hexA(col, .5); c.lineWidth = 2; c.stroke();
+      txt(c, n, x + 20, y + 36, { size: 19, weight: 800, color: col });
+      txt(c, `${Math.round(val)}%`, x + 20, y + 84, { size: 40, weight: 900 });
+      if (k === 2 && sc.failed) txt(c, 'misión fallida', x + cw - 20, y + 84, { size: 18, weight: 800, color: C.red, align: 'right' });
+    });
+    txt(c, '“Lo que no se ve en la recuperación, se ve en la cancha.”', W / 2, H - 40, { size: 25, weight: 500, color: C.lima, align: 'center', italic: true });
+  }, { parent: screen, pos: [0, 1.88, -2.85], state: { k: animate ? 0 : 1 } });
+  const b1 = button('Jugar de nuevo', { parent: screen, pos: [-.6, .88, -2.8], w: 1.05, h: .22, onClick: () => startMatch() });
+  const b2 = button('Volver al inicio', { parent: screen, pos: [.6, .88, -2.8], w: 1.05, h: .22, variant: 'secondary', onClick: () => goHome() });
+  appear(panel, 0, 700); appear(b1, 500); appear(b2, 600);
+  if (animate) tween(2200, k => panel.redraw({ k }), ease.out).then(() => { if (perf >= 75) Sound.finalChord(); else Sound.soft(); });
+}
+
+/* ---------- 0.b Accesibilidad ---------- */
+const ACCESS_OPTS = [
+  { k: 'bigText', cat: 'VISUAL', c: C.cyan, n: 'Texto grande', d: 'Paneles, textos y botones 15 % más grandes.' },
+  { k: 'highContrast', cat: 'VISUAL', c: C.cyan, n: 'Alto contraste', d: 'Paneles opacos, bordes marcados y textos más claros.' },
+  { k: 'reduceMotion', cat: 'VISUAL · MAREO', c: C.cyan, n: 'Reducir movimiento', d: 'Sin temblor de cámara: la agitación se muestra con color.' },
+  { k: 'captions', cat: 'AUDITIVA', c: C.purple, n: 'Subtítulos de sonidos', d: 'Muestra en texto el silbato, los aciertos, los errores y la música.' },
+  { k: 'music', cat: 'AUDITIVA', c: C.purple, n: 'Volumen de la música', d: 'Bajá o sacá la música de fondo para concentrarte en las consignas.', value: true },
+  { k: 'easyGrab', cat: 'MOTRIZ', c: C.orange, n: 'Agarre fácil', d: 'Un toque agarra la herramienta y otro la suelta. El masaje no exige mover en círculos.' },
+  { k: 'calmPace', cat: 'COGNITIVA', c: C.yellow, n: 'Ritmo tranquilo', d: 'Más tiempo en el minijuego, barras que bajan más lento y un camino de respiración más ancho.' },
+];
+function drawAccessRow(c, W, H, s) {
+  const o = s.o, on = o.value ? Access.get('music') !== 0 : !!Access.get(o.k), hc = Access.get('highContrast');
+  rr(c, 2, 2, W - 4, H - 4, 16); c.fillStyle = on ? '#1d5751' : hc ? '#001418' : '#084654'; c.fill();
+  c.lineWidth = 3; c.strokeStyle = s.hover ? '#ffffff' : on ? hexA(C.lima, .85) : hc ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.12)'; c.stroke();
+  txt(c, o.cat, 22, 25, { size: 13, weight: 800, color: o.c, ls: 2 });
+  txt(c, o.n, 22, 50, { size: 22, weight: 800 });
+  wrap(c, o.d, 330, 28, W - 330 - 170, 20, { size: 16, weight: 600, color: C.muted });
+  const state = o.value ? Access.musicName() : on ? 'SÍ' : 'NO';
+  setFont(c, 18, 800); const pw = Math.max(96, c.measureText(state).width + 36), px = W - 18 - pw;
+  rr(c, px, 13, pw, 36, 18);
+  if (on) { c.fillStyle = C.lima; c.fill(); } else if (o.value) { c.fillStyle = 'rgba(255,255,255,.14)'; c.fill(); } else { c.lineWidth = 2; c.strokeStyle = 'rgba(255,255,255,.45)'; c.stroke(); }
+  txt(c, state, px + pw / 2, 38, { size: 18, weight: 800, color: on ? '#04131f' : C.text, align: 'center' });
+}
+function showAccess(animate = true) {
+  makeScreen();
+  setHint('Accesibilidad · Tocá cada opción para activarla o desactivarla');
+  const panel = canvasPlane(2.7, 1.78, (c, W, H) => {
+    panelBg(c, W, H, C.lima);
+    txt(c, 'PIKI GAME · ACCESIBILIDAD', 56, 64, { size: 19, weight: 800, color: C.lima, ls: 4 });
+    txt(c, 'Jugá a tu manera', 56, 124, { size: 48, weight: 900 });
+    txt(c, 'Las opciones quedan guardadas en este navegador para las próximas partidas.', 56, 162, { size: 21, weight: 600, color: C.muted });
+    txt(c, 'Siempre: se juega con un solo botón o con la mirada · la interfaz se acomoda si jugás sentado · cada sonido tiene su señal visual', W / 2, H - 22, { size: 15, weight: 600, color: C.muted, align: 'center', maxW: W - 80 });
+  }, { parent: screen, pos: [0, 1.84, -2.75] });
+  const K = panel.bigK || 1, PPM = 400, PW = 1080, PH = 712, rw = 968, rh = 62, gap = 6, y0 = 182;
+  ACCESS_OPTS.forEach((o, i) => {
+    const y = y0 + i * (rh + gap), cy = (PH / 2 - (y + rh / 2)) / PPM;
+    const row = button(o.n, { parent: panel, pos: [0, cy * K, .006], w: rw / PPM, h: rh / PPM, draw: drawAccessRow, state: { o }, big: false,
+      onClick: () => { if (o.value) Access.set('music', (Access.get('music') + 1) % 4); else Access.toggle(o.k); showAccess(false); } });
+    row.ui.mesh.scale.setScalar(K); row.ui.mesh.renderOrder = 21;
+  });
+  const bOk = button('Listo', { parent: screen, pos: [-.5, .8, -2.72], w: .9, h: .22, onClick: () => showWelcome() });
+  const bReset = button('Restablecer', { parent: screen, pos: [.5, .8, -2.72], w: .9, h: .22, variant: 'secondary', onClick: () => { Access.reset(); showAccess(false); } });
+  if (animate) { appear(panel); appear(bOk, 200); appear(bReset, 250); }
 }
 async function goHome() {
   await transition(() => { Sound.padStop(2); Sound.crowdStop(1); setEnv('hub'); showWelcome(); }, { fadeMs: 800 });
@@ -1952,6 +2367,7 @@ AFRAME.registerComponent('piki-game', {
     updateTweens(Math.min(dt || 16, 500));
     dt = Math.min(dt || 16, 60); const s = dt / 1000; this.time += s;
     tickers.forEach(f => { try { f(s, this.time); } catch (e) { console.error(e); tickers.delete(f); } });
+    try { dragTick(s, this.time); shakeTick(this.time); } catch (e) { console.error(e); }
     if (G.env === 'hub') ENV.hub.update(s, this.time);
     if (G.env === 'stadium') ENV.stadium.update(s, this.time);
   },
@@ -1970,34 +2386,43 @@ async function boot(scn) {
 
   // Controles de entrada
   const setGaze = on => { const g = $('#gaze'); g.setAttribute('raycaster', 'enabled', on); g.setAttribute('visible', on); };
+  // Barra de instrucciones y subtítulos frente a la vista (solo en VR)
+  vrBar = canvasPlane(1.4, .3, drawVrBar, { parent: cardHolder, pos: [0, -.36, -1.25], order: 10002, depthTest: false, ppm: 500, state: { hint: hintNow, cap: '' }, big: false });
+  vrBar.object3D.visible = false;
+  sceneEl.addEventListener('enter-vr', () => { vrBar.object3D.visible = true; });
+  sceneEl.addEventListener('exit-vr', () => { vrBar.object3D.visible = false; });
+  Access.apply();
   sceneEl.addEventListener('enter-vr', () => { $('#hud').style.display = 'none'; const dev = AFRAME.utils.device; if (dev.isMobile() && !dev.isMobileVR()) setGaze(true); });
   sceneEl.addEventListener('exit-vr', () => { $('#hud').style.display = ''; setGaze(false); });
   ['#handL', '#handR'].forEach(id => {
     const h = $(id);
-    h.addEventListener('controllerconnected', () => setGaze(false));
-    h.addEventListener('triggerdown', () => setHold(true)); h.addEventListener('triggerup', () => setHold(false));
-    h.addEventListener('gripdown', () => setHold(true)); h.addEventListener('gripup', () => setHold(false));
+    h.addEventListener('controllerconnected', () => { Ptr.ctrl[id] = true; setGaze(false); });
+    h.addEventListener('controllerdisconnected', () => { Ptr.ctrl[id] = false; });
+    h.addEventListener('triggerdown', ptrDown); h.addEventListener('triggerup', ptrUp);
+    h.addEventListener('gripdown', ptrDown); h.addEventListener('gripup', ptrUp);
   });
-  window.addEventListener('mousedown', e => { if (e.button === 0) setHold(true); });
-  window.addEventListener('mouseup', () => setHold(false));
-  window.addEventListener('touchstart', () => setHold(true), { passive: true });
-  window.addEventListener('touchend', () => setHold(false));
+  // Puntero: mouse y dedo (para arrastrar herramientas y seguir el camino de respiración)
+  const setNdc = (x, y) => { const r = sceneEl.canvas.getBoundingClientRect(); Ptr.ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1); };
+  window.addEventListener('pointermove', e => { if (e.isPrimary) setNdc(e.clientX, e.clientY); });
+  window.addEventListener('pointerdown', e => { if (!e.isPrimary || e.button > 0) return; setNdc(e.clientX, e.clientY); ptrDown(); });
+  window.addEventListener('pointerup', e => { if (e.isPrimary) ptrUp(); });
+  window.addEventListener('pointercancel', e => { if (e.isPrimary) ptrUp(); });
   window.addEventListener('keydown', e => {
-    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) setHold(true); }
     if (e.key === 'm' || e.key === 'M') toggleMute();
     if (e.key === 'r' || e.key === 'R') recenter();
   });
-  window.addEventListener('keyup', e => { if (e.code === 'Space') setHold(false); });
   const toggleMute = () => { Sound.setMuted(!Sound.isMuted()); $('#btnMute').textContent = Sound.isMuted() ? '🔇 Silencio' : '🔊 Sonido'; };
   const recenter = () => { if (!stage) return; const { yaw, pos } = camWorld(); stage.object3D.rotation.y = yaw; stage.object3D.position.x = pos.x; stage.object3D.position.z = pos.z; };
   $('#btnMute').addEventListener('click', e => { e.stopPropagation(); Sound.init(); toggleMute(); });
   $('#btnRecenter').addEventListener('click', e => { e.stopPropagation(); recenter(); });
-  ['mousedown', 'touchstart'].forEach(ev => $('#controls').addEventListener(ev, e => e.stopPropagation()));
+  ['mousedown', 'touchstart', 'pointerdown'].forEach(ev => $('#controls').addEventListener(ev, e => e.stopPropagation()));
   document.addEventListener('pointerdown', () => Sound.init(), { once: true });
 
   ENV.ready = true;
   // Arranque (con atajo de pruebas ?etapa=...)
   const q = new URLSearchParams(location.search).get('etapa');
+  // ?debug: expone el estado para pruebas automáticas
+  if (new URLSearchParams(location.search).has('debug')) window.__piki = { G, Drag, Ptr, Access, get body() { return body; }, get screen() { return screen; }, pointerRay, THREE, sceneEl };
   G.match = newMatch();
   if (q === 'cancha') { setEnv('stadium', 'match'); makeStage(); showArrival(); }
   else if (q === 'fisica') { setEnv('stadium', 'match'); makeStage(); showPhysIntro(); }
@@ -2006,7 +2431,9 @@ async function boot(scn) {
   else if (q === 'minijuego') { setEnv('locker'); makeStage(); runNutritionGame(); }
   else if (q === 'calma') { setEnv('stadium', 'calm'); makeStage(); showCalmIntro(); }
   else if (q === 'respiracion') { setEnv('stadium', 'calm'); makeStage(); runBreathing(); }
-  else if (q === 'final') { G.phys = { sits: genSituations(G.match), firstTry: 2 }; G.nutri = { score: 82, stars: 2, good: 19 }; G.calm = { cycles: 6, guided: false, sync: 86, hr: 64 }; setEnv('stadium', 'dawn'); ENV.stadium.mode('done'); makeStage(); showFinal(); }
+  else if (q === 'final') { G.phys = { sits: genSituations(G.match), firstTry: 2 }; G.nutri = { score: 82, stars: 2, good: 19 }; G.calm = { cycles: 3, failed: false, sync: 86, hr: 64 }; setEnv('stadium', 'dawn'); ENV.stadium.mode('done'); makeStage(); showFinal(); }
+  else if (q === 'partido') { setEnv('stadium', 'next'); makeStage(); makeScreen(); nextMatch(); }
+  else if (q === 'acceso') { setEnv('hub'); makeStage(); showAccess(); }
   else if (q === 'deporte') { setEnv('hub'); makeStage(); showSport(); }
   else { setEnv('hub'); showWelcome(); }
   $('#loader').style.opacity = 0; setTimeout(() => $('#loader').remove(), 900);
