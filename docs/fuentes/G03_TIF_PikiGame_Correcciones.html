@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Piki Game · Correcciones TP3</title>
+<style>
+@font-face { font-family: "Poppins"; font-weight: 500; src: url("Poppins-Medium.ttf"); }
+@font-face { font-family: "Poppins"; font-weight: 500; font-style: italic; src: url("Poppins-MediumItalic.ttf"); }
+@font-face { font-family: "Poppins"; font-weight: 700; src: url("Poppins-Bold.ttf"); }
+@font-face { font-family: "Poppins"; font-weight: 800; font-style: italic; src: url("Poppins-ExtraBoldItalic.ttf"); }
+@page { size: A4; margin: 0; }
+@page land { size: A4 landscape; margin: 0; }
+:root { --petroleo: #004856; --abismo: #00333E; --celeste: #009DB6; --lima: #B9D339; --crema: #F8F6F0; --niebla: #DDDCD8; --ink: #12262B; --ink2: #4A5A5E; --rojo: #D93545; }
+* { box-sizing: border-box; margin: 0; }
+body { font-family: "Poppins", sans-serif; font-weight: 500; color: var(--ink); font-size: 10pt; line-height: 1.55; }
+.page { position: relative; width: 210mm; height: 297mm; padding: 22mm 18mm 20mm; background: var(--crema); overflow: hidden; break-after: page; }
+.page.land { page: land; width: 297mm; height: 210mm; padding: 14mm 14mm 12mm; }
+.page::before { content: ""; position: absolute; right: -40mm; bottom: -40mm; width: 150mm; height: 120mm; opacity: .045; background: url("piki-isotipo-petroleo.svg") no-repeat center / contain; }
+.run { position: absolute; top: 9mm; left: 18mm; right: 18mm; display: flex; justify-content: space-between; align-items: center; font-size: 7.5pt; color: var(--ink2); }
+.run img { height: 6mm; }
+.land .run { left: 14mm; right: 14mm; top: 6mm; }
+.num { position: absolute; bottom: 9mm; right: 18mm; font-size: 8pt; font-weight: 700; color: var(--petroleo); }
+.land .num { bottom: 5mm; right: 14mm; }
+h1 { font-weight: 800; font-style: italic; color: var(--petroleo); font-size: 26pt; line-height: 1.1; }
+h2 { font-weight: 800; font-style: italic; color: var(--petroleo); font-size: 19pt; line-height: 1.15; margin-bottom: 3mm; }
+h2 em, h1 em { font-style: italic; background: linear-gradient(transparent 60%, var(--lima) 60%); }
+h3 { font-weight: 700; color: var(--petroleo); font-size: 11.5pt; margin: 5mm 0 1.5mm; }
+.eyebrow { font-size: 8pt; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--celeste); margin-bottom: 1.5mm; }
+p { margin-bottom: 2.5mm; } p.lead { font-size: 11pt; color: var(--ink2); }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 8.6pt; line-height: 1.4; background: #fff; border-radius: 3mm; overflow: hidden; border: .3mm solid rgba(0,72,86,.15); margin: 2mm 0 3mm; }
+th { background: var(--petroleo); color: #fff; text-align: left; font-weight: 700; padding: 2mm 2.6mm; font-size: 8.2pt; }
+td { padding: 2mm 2.6mm; vertical-align: top; border-top: .25mm solid rgba(0,72,86,.1); }
+td b { color: var(--petroleo); }
+.tag { display: inline-block; font-size: 7pt; font-weight: 700; letter-spacing: .08em; padding: .4mm 2mm; border-radius: 9mm; color: #fff; background: var(--celeste); white-space: nowrap; }
+.tag.v { background: #2C8FB0; } .tag.a { background: #7A4FD0; } .tag.m { background: #D9681E; } .tag.c { background: #B08A00; } .tag.f { background: var(--petroleo); }
+.ok { color: #2E7D00; font-weight: 700; }
+ul { padding-left: 5mm; margin-bottom: 2.5mm; } li { margin-bottom: 1mm; } li::marker { color: var(--lima); }
+.callout { background: var(--petroleo); color: #E6F1F3; border-radius: 4mm; padding: 4mm 5mm; margin: 3mm 0; }
+.callout b { color: var(--lima); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+.card { background: #fff; border: .3mm solid rgba(0,72,86,.15); border-radius: 3.5mm; padding: 3.5mm 4mm; font-size: 8.8pt; }
+.card b.t { display: block; font-size: 10pt; color: var(--petroleo); }
+.shot { width: 100%; border-radius: 3mm; display: block; border: .3mm solid rgba(0,72,86,.2); }
+.cap { font-size: 7.5pt; color: var(--ink2); margin-top: 1.2mm; }
+.full { width: 100%; height: 178mm; object-fit: contain; display: block; margin-top: 5mm; border-radius: 2mm; }
+/* portada */
+.cover { background: var(--petroleo); color: #fff; padding: 0; }
+.cover::before { opacity: .07; background-image: url("piki-isotipo-blanco.svg"); right: -30mm; bottom: -10mm; width: 190mm; height: 150mm; }
+.cover .in { position: absolute; inset: 24mm 20mm; display: flex; flex-direction: column; }
+.cover .logo { width: 70mm; }
+.cover h1 { color: #fff; font-size: 34pt; margin-top: 38mm; }
+.cover h1 em { color: var(--lima); background: none; }
+.cover .sub { font-size: 13pt; color: #CFE3E7; margin-top: 5mm; max-width: 140mm; }
+.cover .claim { margin-top: auto; font-weight: 800; font-style: italic; font-size: 16pt; color: var(--lima); }
+.cover .meta { margin-top: 6mm; font-size: 9pt; color: #CFE3E7; line-height: 1.6; }
+.cover .meta b { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<section class="page cover">
+  <div class="in">
+    <img class="logo" src="piki-isologo-blanco.svg" alt="Piki">
+    <h1>Piki Game<br><em>Correcciones del TP3</em></h1>
+    <p class="sub">Respuesta a la rúbrica de evaluación y cambios de la versión 14 del videojuego (Unity VR 360° y web): identidad de marca, accesibilidad, dispositivos VR, diagrama de flujo, mapa transmedia y nomenclatura.</p>
+    <div class="claim">Recuperar también es entrenar.</div>
+    <div class="meta"><b>Grupo 3</b> · TIF de Diseño Multimedia y de Interacción · UADE · Martes/Jueves turno tarde 2026<br>
+      Bibiloni Mira, Thiago · Díaz, Paulina · Fafián, Francisco Torcuato · Oshiro, Nicolás Leandro</div>
+  </div>
+</section>
+
+<!-- 1. RESUMEN -->
+<section class="page">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>Piki Game · Correcciones TP3 · G03</span></div>
+  <div class="eyebrow">01 · Resumen</div>
+  <h2>Qué marcó la rúbrica y <em>qué cambiamos</em></h2>
+  <p class="lead">Tomamos cada observación de la devolución y la resolvimos en el juego, en los entregables o en el informe.</p>
+  <table>
+    <tr><th style="width:30%">Observación de la rúbrica</th><th>Qué hicimos</th><th style="width:20%">Dónde está</th></tr>
+    <tr><td><b>Accesibilidad (N-)</b>: faltan aspectos físicos, visuales, auditivos, cognitivos y motrices.</td><td>Nuevo menú <b>Accesibilidad</b> en el juego con 7 opciones (texto grande, alto contraste, reducir movimiento, subtítulos de sonidos, volumen de la música, agarre fácil, ritmo tranquilo) y criterios fijos para todos.</td><td>Juego v14 · sección 03</td></tr>
+    <tr><td><b>Identidad genérica</b> y consistencia cuestionable entre informe, experiencia y soporte.</td><td>Aplicamos el <b>Manual de marca de Piki</b> al juego (Unity y web): nombre, isologo, isotipo, Poppins, petróleo y lima, claim y botones del UI kit. Los diagramas y este documento usan el mismo sistema.</td><td>Juego v14 · sección 02</td></tr>
+    <tr><td><b>Mapa transmedia actualizado (No)</b>.</td><td>Mapa con las 5 plataformas, cómo se conectan y el recorrido antes, durante y después del evento.</td><td>Sección 07</td></tr>
+    <tr><td><b>Diagrama de flujo</b> del juego.</td><td>Diagrama de las 5 escenas con decisiones, errores, reintentos y resultados.</td><td>Sección 06</td></tr>
+    <tr><td>¿Qué <b>dispositivo VR</b>, qué modelos y qué capacidades del casco?</td><td>Tabla de visores compatibles (OpenXR) y de cada capacidad usada, con su función en el juego.</td><td>Sección 04</td></tr>
+    <tr><td><b>User personas</b> a las que apunta el juego.</td><td>Mateo (principal), Martín, Laura y Sebastián, con qué hace cada uno con el juego.</td><td>Sección 05</td></tr>
+    <tr><td><b>Nomenclatura</b> de archivos y archivo <b>sin extensión</b>.</td><td>Convención <b>G03_TIF_Pieza_Versión.ext</b>, lista de entregables y cómo empaquetar cada build.</td><td>Sección 08</td></tr>
+    <tr><td>Falta el archivo de <b>Blender</b> y el proceso de construcción.</td><td>Checklist de la carpeta de proceso (.blend, .fbx, capturas) y explicación del constructor de escenas de Unity.</td><td>Sección 08</td></tr>
+    <tr><td>Presentación corta, mucho detalle de mecánica, pocos recursos audiovisuales.</td><td>Guion de 10 minutos centrado en lo que logra el usuario, con video y animaciones de logo.</td><td>Sección 09</td></tr>
+  </table>
+  <div class="callout"><b>Versión 14 del juego.</b> El proyecto pasa a llamarse <b>Piki Game</b> (carpeta <b>Assets/PikiGame</b>, menú <b>Piki Game ▸ Construir escenas</b>). La versión web (index.html) recibe la misma marca.</div>
+  <div class="num">2</div>
+</section>
+
+<!-- 2. IDENTIDAD -->
+<section class="page">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>Piki Game · Correcciones TP3 · G03</span></div>
+  <div class="eyebrow">02 · Identidad visual</div>
+  <h2>El juego ahora <em>es Piki</em></h2>
+  <p>El manual define que el juego comparte con el resto del sistema la tipografía Poppins, los íconos, el tono de voz y dos colores institucionales: <b>petróleo</b> en los paneles y <b>lima</b> en los acentos, los logros y la marca dentro del estadio. La escena sigue oscura (en VR un fondo claro encandila) y los colores funcionales se mantienen.</p>
+  <img class="shot" src="../capturas/G03_TIF_PikiGame_Web_Inicio.png" alt="Pantalla de inicio">
+  <p class="cap">Pantalla de inicio (versión web): isologo, “El trabajo invisible” en lima, claim y panel petróleo. La versión Unity usa el mismo diseño.</p>
+  <table>
+    <tr><th style="width:26%">Elemento</th><th>Antes (TP3)</th><th>Ahora (v14)</th></tr>
+    <tr><td><b>Nombre</b></td><td>Piki Recovery</td><td><b>Piki Game</b> (marca Piki) · claim “Recuperar también es entrenar.”</td></tr>
+    <tr><td><b>Logo</b></td><td>Texto “PIKI RECOVERY” y una pelota</td><td>Isologo en el inicio y en el estadio (lima), isotipo en los carteles entre etapas, en el escudo del vestuario y como marca de agua en los paneles; ícono de la app</td></tr>
+    <tr><td><b>Tipografía</b></td><td>Fuente de sistema</td><td><b>Poppins</b>; titulares y números grandes en <b>ExtraBold cursiva</b></td></tr>
+    <tr><td><b>Color</b></td><td>Paneles azul marino, acento turquesa</td><td>Paneles <b>petróleo</b>, acentos y logros en <b>lima</b>, botón de acción en menta #22F0BF (paleta funcional)</td></tr>
+    <tr><td><b>Botones</b></td><td>MAYÚSCULAS con flecha →</td><td>Como el UI kit: “Comenzar”, “Empezar minijuego”, “Reintentar”, “Continuar igual”</td></tr>
+    <tr><td><b>Estadio</b></td><td>Carteles “PIKI RECOVERY”</td><td>LED, marcador y cartel con el isologo y el claim en lima</td></tr>
+  </table>
+  <div class="num">3</div>
+</section>
+
+<!-- 3. ACCESIBILIDAD -->
+<section class="page">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>Piki Game · Correcciones TP3 · G03</span></div>
+  <div class="eyebrow">03 · Accesibilidad</div>
+  <h2>Pensado para <em>distintas capacidades</em></h2>
+  <p>En el TP3 hablamos de acceso desde varios dispositivos. Ahora consideramos las capacidades de las personas. Desde el inicio, el botón <b>Accesibilidad</b> abre estas opciones; quedan guardadas para las próximas partidas.</p>
+  <table>
+    <tr><th style="width:16%">Tipo</th><th style="width:22%">Opción</th><th>Qué hace en el juego</th></tr>
+    <tr><td><span class="tag v">VISUAL</span></td><td><b>Texto grande</b></td><td>Paneles, textos y botones 15 % más grandes; también la barra de instrucciones.</td></tr>
+    <tr><td><span class="tag v">VISUAL</span></td><td><b>Alto contraste</b></td><td>Paneles opacos, bordes blancos y textos secundarios más claros (de 6,5:1 a 15,5:1).</td></tr>
+    <tr><td><span class="tag v">VISUAL · MAREO</span></td><td><b>Reducir movimiento</b></td><td>Sin temblor de cámara en la respiración; la agitación se muestra con el borde rojo y el punto naranja.</td></tr>
+    <tr><td><span class="tag a">AUDITIVA</span></td><td><b>Subtítulos de sonidos</b> (activado)</td><td>Muestra en texto el silbato, los aciertos y errores, la inhalación y exhalación, el público y la música.</td></tr>
+    <tr><td><span class="tag a">AUDITIVA</span></td><td><b>Volumen de la música</b></td><td>100 %, 60 %, 30 % o sin música, para concentrarse en las consignas o usar un audífono.</td></tr>
+    <tr><td><span class="tag m">MOTRIZ</span></td><td><b>Agarre fácil</b></td><td>Un toque agarra la herramienta y otro la suelta, sin mantener apretado; el masaje no exige mover en círculos; más margen sobre la zona.</td></tr>
+    <tr><td><span class="tag c">COGNITIVA</span></td><td><b>Ritmo tranquilo</b></td><td>Minijuego de 50 s (en vez de 35), barras que bajan más lento, alimentos más lentos y un camino de respiración más ancho.</td></tr>
+  </table>
+  <h3>Criterios que valen siempre</h3>
+  <table>
+    <tr><th style="width:16%">Tipo</th><th>Criterio</th></tr>
+    <tr><td><span class="tag f">FÍSICA</span></td><td>Se puede jugar <b>sentado o parado</b>: la interfaz se ubica según la altura de la cabeza al empezar cada etapa, y <b>R</b> / recentrar la vuelve a poner adelante.</td></tr>
+    <tr><td><span class="tag m">MOTRIZ</span></td><td>Todo se juega con <b>un solo botón</b> (clic, toque o gatillo) o <b>solo con la mirada</b> en VR (mirar fijo 1,4 s); no hay acciones con tiempo de reacción corto fuera del minijuego.</td></tr>
+    <tr><td><span class="tag v">VISUAL</span></td><td>Textos claros sobre petróleo con contraste <b>12,4:1</b> (AAA); botones 12,8:1. <b>Nunca solo color</b>: cada estado lleva texto o ícono (✓, ✕, “BAJO”, “ÓPTIMO”, “Misión fallida”).</td></tr>
+    <tr><td><span class="tag a">AUDITIVA</span></td><td>Cada sonido importante tiene <b>señal visual</b> y <b>vibración</b> en los controles VR; en VR la barra de instrucciones flota frente a la vista.</td></tr>
+    <tr><td><span class="tag c">COGNITIVA</span></td><td>Una consigna por pantalla, en lenguaje cotidiano y con voseo; los errores <b>explican por qué</b> y dejan reintentar sin castigo; los fallos se pueden <b>reintentar o continuar</b>.</td></tr>
+  </table>
+  <div class="num">4</div>
+</section>
+
+<!-- 4. DISPOSITIVOS -->
+<section class="page">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>Piki Game · Correcciones TP3 · G03</span></div>
+  <div class="eyebrow">04 · Tecnología VR</div>
+  <h2>Qué visor usamos y <em>qué aprovechamos de él</em></h2>
+  <p>Piki Game está hecho en <b>Unity 6</b> con el estándar <b>OpenXR</b>. Por eso no depende de una marca: el mismo proyecto funciona en visores standalone (sin PC) y en visores conectados a una computadora. La versión principal apunta a <b>Meta Quest</b>, el visor más accesible para clubes, escuelas y la sala VR del Evento Piki.</p>
+  <table>
+    <tr><th style="width:24%">Tipo</th><th>Modelos compatibles</th><th style="width:30%">Cómo se instala</th></tr>
+    <tr><td><b>Standalone</b> (principal)</td><td>Meta Quest 2, Quest 3, Quest 3S y Quest Pro</td><td>Build Android (APK) con OpenXR + Meta Quest Support</td></tr>
+    <tr><td><b>VR de PC</b></td><td>Quest con Link / Air Link, Valve Index, HTC Vive y Vive Pro</td><td>Build Windows con OpenXR (SteamVR o Meta Link)</td></tr>
+    <tr><td><b>360° sin visor</b></td><td>PC y Mac (mouse), celular Android o iOS (giroscopio), navegador (versión web)</td><td>Build de escritorio o móvil; versión web</td></tr>
+  </table>
+  <h3>Capacidades del casco que implementamos</h3>
+  <table>
+    <tr><th style="width:30%">Capacidad</th><th>Para qué la usa el juego</th></tr>
+    <tr><td><b>Seguimiento de cabeza 6DoF</b> (rotación y posición)</td><td>Mirar alrededor en 360° y moverse un poco dentro del estadio y el vestuario.</td></tr>
+    <tr><td><b>Origen en el piso</b> (altura real)</td><td>Ubicar paneles y holograma a la altura de los ojos, sentado o parado.</td></tr>
+    <tr><td><b>Controles con seguimiento</b></td><td>Rayo láser para apuntar a botones, herramientas y alimentos, y para seguir el camino de respiración.</td></tr>
+    <tr><td><b>Gatillo y grip</b></td><td>Elegir opciones y agarrar la bolsa de hielo, la compresa o la pelota de masaje.</td></tr>
+    <tr><td><b>Vibración háptica</b></td><td>Pulso al aplicar el tratamiento y al cambiar de fase en la respiración.</td></tr>
+    <tr><td><b>Modo mirada</b> (sin controles)</td><td>Retícula con tiempo de espera: se juega completo solo con la cabeza.</td></tr>
+    <tr><td><b>Render estéreo</b> a la frecuencia del visor</td><td>Profundidad real del holograma y de los alimentos; el temblor de cámara se reduce al 25 % en VR para no marear.</td></tr>
+  </table>
+  <p style="font-size:8.6pt;color:var(--ink2)">No usamos (posibles extensiones): seguimiento de manos, passthrough (realidad mixta), seguimiento de ojos ni audio espacial.</p>
+  <div class="num">5</div>
+</section>
+
+<!-- 5. PERSONAS + EXTENSIONES -->
+<section class="page">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>Piki Game · Correcciones TP3 · G03</span></div>
+  <div class="eyebrow">05 · Usuarios</div>
+  <h2>A quién le habla <em>Piki Game</em></h2>
+  <p>El juego se dirige al público primario del manual: deportistas de 14 a 20 años. También lo usa su entorno, el público secundario.</p>
+  <div class="grid2">
+    <div class="card"><b class="t">Mateo, 18 · deportista de fútbol</b><span class="tag f">PRINCIPAL</span><p style="margin-top:2mm">“Quiero mejorar mi rendimiento, pero todavía tengo mucho que aprender sobre cómo recuperarme.” Juega todo el recorrido y ve en el próximo partido el efecto de sus decisiones.</p></div>
+    <div class="card"><b class="t">Martín, 38 · entrenador</b><span class="tag">SECUNDARIO</span><p style="margin-top:2mm">Usa el juego con el plantel después de un partido o en la sala VR del evento. La barra de rendimiento le sirve para abrir la charla sobre recuperación.</p></div>
+    <div class="card"><b class="t">Laura, 25 · kinesióloga deportiva</b><span class="tag">SECUNDARIO</span><p style="margin-top:2mm">Valida la etapa física: frío, calor y descarga según el síntoma. Usa las explicaciones de cada error como material educativo.</p></div>
+    <div class="card"><b class="t">Sebastián, 38 · psicólogo deportivo</b><span class="tag">SECUNDARIO</span><p style="margin-top:2mm">La vuelta a la calma traduce la respiración y el pulso a algo visible. Le sirve para explicar que el estrés afecta la recuperación física.</p></div>
+  </div>
+  <div class="eyebrow" style="margin-top:8mm">Extensiones posibles</div>
+  <h2 style="font-size:15pt">Hacia dónde puede <em>crecer</em></h2>
+  <ul>
+    <li><b>Más deportes</b>: básquet, vóley, tenis, hockey y rugby ya aparecen como “Próximamente”, con su propio espacio y lesiones típicas.</li>
+    <li><b>Conexión con Piki App</b>: el resultado del juego se guarda en la app y propone una rutina real de recuperación para ese día.</li>
+    <li><b>Modo equipo</b>: el entrenador ve el rendimiento de todo el plantel en la sala VR del evento.</li>
+    <li><b>Seguimiento de manos y passthrough</b>: aplicar la bolsa de hielo con la mano sobre el propio cuerpo, en el vestuario real.</li>
+    <li><b>Lectura en voz alta</b> de las consignas y <b>más idiomas</b> para ampliar la accesibilidad.</li>
+  </ul>
+  <div class="num">6</div>
+</section>
+
+<!-- 6. FLUJO -->
+<section class="page land">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>06 · Diagrama de flujo del juego</span></div>
+  <img class="full" src="../G03_TIF_PikiGame_FlujoDelJuego.png" alt="Diagrama de flujo">
+  <div class="num">7</div>
+</section>
+
+<!-- 7. TRANSMEDIA -->
+<section class="page land">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>07 · Mapa transmedia actualizado</span></div>
+  <img class="full" src="../G03_TIF_Piki_MapaTransmedia.png" alt="Mapa transmedia">
+  <div class="num">8</div>
+</section>
+
+<!-- 8. NOMENCLATURA -->
+<section class="page">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>Piki Game · Correcciones TP3 · G03</span></div>
+  <div class="eyebrow">08 · Entregables</div>
+  <h2>Nombres claros y <em>siempre con extensión</em></h2>
+  <p><b>Convención:</b> <b>G03_TIF_Pieza_Detalle_vNN.ext</b>. Sin espacios, tildes ni “ñ”; las palabras van en mayúscula inicial y siempre con la extensión del formato. Las builds se entregan comprimidas en <b>.zip</b> (una app de Mac es una carpeta, por eso puede llegar “sin extensión”).</p>
+  <table>
+    <tr><th style="width:44%">Archivo</th><th>Qué es</th></tr>
+    <tr><td><b>G03_TIF_PikiGame_Informe.pdf</b></td><td>Informe final (incluye estas correcciones)</td></tr>
+    <tr><td><b>G03_TIF_PikiGame_Unity_v14.zip</b></td><td>Proyecto Unity: carpeta <b>Assets/PikiGame</b> con scripts, audios, logos y fuentes</td></tr>
+    <tr><td><b>G03_TIF_PikiGame_Quest_v14.apk</b></td><td>Build para Meta Quest (se instala con Meta Quest Developer Hub o SideQuest)</td></tr>
+    <tr><td><b>G03_TIF_PikiGame_Windows_v14.zip</b> / <b>_Mac_v14.zip</b></td><td>Build de escritorio: el .exe con su carpeta “_Data”, o la app .app comprimida</td></tr>
+    <tr><td><b>G03_TIF_PikiGame_Web_v14.zip</b></td><td>Versión web: index.html, la carpeta lib (A-Frame) y la carpeta assets (logos y Poppins)</td></tr>
+    <tr><td><b>G03_TIF_PikiGame_Demo.mp4</b></td><td>Video demo del recorrido completo</td></tr>
+    <tr><td><b>G03_TIF_PikiGame_Modelos.blend</b> + <b>.fbx</b></td><td>Modelos hechos en Blender y su exportación para Unity</td></tr>
+    <tr><td><b>G03_TIF_PikiGame_FlujoDelJuego.png</b></td><td>Diagrama de flujo (sección 06)</td></tr>
+    <tr><td><b>G03_TIF_Piki_MapaTransmedia.png</b></td><td>Mapa transmedia (sección 07)</td></tr>
+    <tr><td><b>G03_TIF_DeclaracionIA.pdf</b></td><td>Declaración de uso de IA en el formato de la matriz</td></tr>
+  </table>
+  <h3>Proceso de construcción del demo</h3>
+  <p>Para que se vea el proceso completo, sumamos una carpeta <b>G03_TIF_PikiGame_Proceso</b> con:</p>
+  <ul>
+    <li>Los archivos <b>.blend</b> de los modelos, con su <b>.fbx</b> exportado y capturas del modelado.</li>
+    <li>El <b>constructor de escenas</b> de Unity (menú Piki Game ▸ Construir escenas): arma las 5 escenas y los 4 fundidos y guarda texturas, materiales y mallas en Assets/PikiGame/Generated. Cada pantalla queda visible en la Hierarchy.</li>
+    <li>Las <b>versiones</b> del juego (v1 a v14) con lo que cambió en cada una, como bitácora del desarrollo y de los testeos.</li>
+  </ul>
+  <div class="num">9</div>
+</section>
+
+<!-- 9. PRESENTACIÓN -->
+<section class="page">
+  <div class="run"><img src="piki-isologo-petroleo.svg" alt=""><span>Piki Game · Correcciones TP3 · G03</span></div>
+  <div class="eyebrow">09 · Presentación oral</div>
+  <h2>Contar lo que <em>logra el usuario</em></h2>
+  <p>La devolución pidió menos detalle de mecánica, más resultado para el usuario y más recursos audiovisuales. También usar todo el tiempo: sobraron casi 3 minutos. Proponemos este guion de 10 minutos:</p>
+  <table>
+    <tr><th style="width:15%">Tiempo</th><th style="width:30%">Bloque</th><th>Qué mostrar</th></tr>
+    <tr><td>0:00–0:45</td><td><b>Apertura</b></td><td>Animación del logo (isotipo → isologo) y el claim “Recuperar también es entrenar.”</td></tr>
+    <tr><td>0:45–2:00</td><td><b>El problema y Mateo</b></td><td>El trabajo invisible; Mateo, 18 años, no sabe recuperarse. Sus datos del partido.</td></tr>
+    <tr><td>2:00–5:00</td><td><b>Qué vive y qué aprende</b></td><td>Video de juego (Quest o 360°) por etapa: elige bien el frío o el calor, equilibra lo que come y baja el pulso. Una frase por etapa sobre lo que se lleva.</td></tr>
+    <tr><td>5:00–6:00</td><td><b>El resultado</b></td><td>La barra del próximo partido: “jugaste los 90” frente a “te cambiaron al 30'”.</td></tr>
+    <tr><td>6:00–7:30</td><td><b>Para todos</b></td><td>Menú de accesibilidad en vivo; visor, controles y modo mirada.</td></tr>
+    <tr><td>7:30–9:00</td><td><b>Ecosistema</b></td><td>Mapa transmedia: del TikTok al juego, al evento y a la app.</td></tr>
+    <tr><td>9:00–10:00</td><td><b>Cierre</b></td><td>Testeos, extensiones posibles y el claim.</td></tr>
+  </table>
+  <div class="callout"><b>Recursos audiovisuales para sumar:</b> las animaciones de logo del manual (isotipo, isologo, logotipo y transición), un video de juego grabado desde el visor y las capturas de este documento.</div>
+  <div class="num">10</div>
+</section>
+
+<script>document.fonts.ready.then(() => document.body.dataset.ready = "1");</script>
+</body>
+</html>

@@ -1,17 +1,22 @@
-# Piki Recovery · Fútbol — versión Unity (360° / VR)
+# Piki Game · Fútbol — versión Unity (360° / VR)
+
+**Piki** (antes *PikiRecovery*) · *Recuperar también es entrenar.*
 
 Es la misma experiencia que la versión web (`index.html`), rehecha en C# para **Unity 6** (compilada contra la
 API de Unity; tu versión es 6000.4). El proyecto trae **5 escenas ya armadas** (estadio, vestuario, etc.) que
-podés ver y editar en el editor. No hace falta importar modelos, imágenes ni audios: un constructor genera las
-escenas y guarda todo como assets.
+podés ver y editar en el editor. Un constructor genera las escenas y guarda todo como assets.
+
+La versión 14 aplica el **Manual de marca de Piki**: nombre *Piki Game*, isologo e isotipo, tipografía
+**Poppins** (titulares en ExtraBold cursiva), paneles en **petróleo** y acentos en **lima**. También suma un menú de
+**Accesibilidad** (ver más abajo).
 
 ## Instalación y escenas
 
-1. Copiá la carpeta **`Assets/PikiRecovery`** dentro de la carpeta **`Assets`** de tu proyecto.
-   Si ya tenías una versión anterior, borrala antes.
-2. Cuando Unity termine de compilar aparece la ventana **"¿Construir ahora las 4 escenas?"**: tocá
-   **Construir**. También podés hacerlo desde el menú **Piki Recovery ▸ Construir escenas**.
-3. Se crean 5 escenas en `Assets/PikiRecovery/Scenes`, con todo ya armado y visible en el editor:
+1. Copiá la carpeta **`Assets/PikiGame`** dentro de la carpeta **`Assets`** de tu proyecto.
+   Si tenías una versión anterior (**`Assets/PikiRecovery`**), borrala antes.
+2. Cuando Unity termine de compilar aparece la ventana **"¿Construir ahora las 5 escenas?"**: tocá
+   **Construir**. También podés hacerlo desde el menú **Piki Game ▸ Construir escenas**.
+3. Se crean 5 escenas y 4 fundidos en `Assets/PikiGame/Scenes`, con todo ya armado y visible en el editor:
 
 | Escena | Qué tiene |
 |---|---|
@@ -29,13 +34,13 @@ En cada escena, en la ventana *Hierarchy*, vas a encontrar:
 * **Entornos**: todo el escenario (piso, tribunas, luces, cielo…). Se puede mover, cambiar de color o borrar,
   y los cambios se mantienen.
 * **PikiRig**: la cámara y el cursor para VR.
-* **Piki Recovery (juego)**: la lógica. En el Inspector podés elegir con qué etapa arranca (**Start At**).
+* **Piki Game (juego)**: la lógica. En el Inspector podés elegir con qué etapa arranca (**Start At**).
 * **Pantallas (vista previa…)**: todas las pantallas de esa etapa (paneles, holograma, herramientas, minijuego,
   respiración, final), una por objeto. Activá cada una para verla en el editor. Al dar Play se regeneran con los
   datos de la partida (situaciones al azar, resultados, etc.).
 * **Procesos (animaciones)**: el objeto que corre las animaciones durante el juego.
 
-Las texturas, materiales y mallas quedan guardados en `Assets/PikiRecovery/Generated`. Si reconstruís las escenas
+Las texturas, materiales y mallas quedan guardados en `Assets/PikiGame/Generated`. Si reconstruís las escenas
 desde el menú, se reemplazan y se pierden los cambios que hayas hecho a mano.
 
 ## Cómo se juega
@@ -48,6 +53,25 @@ desde el menú, se reemplazan y se pierden los cambios que hayas hecho a mano.
 | VR solo mirada | Girar la cabeza | Mirar fijo 1,4 s el botón | Mirar la herramienta para agarrarla y después mirar la zona | Mover la mirada |
 
 Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
+
+## Accesibilidad
+
+En la pantalla de inicio, el botón **Accesibilidad** abre las opciones. Quedan guardadas en el equipo; para
+volver a las de fábrica usá **Restablecer** o el menú **Piki Game ▸ Restablecer opciones de accesibilidad**.
+
+| Tipo | Opción | Qué hace |
+|---|---|---|
+| Visual | **Texto grande** | Paneles, textos y botones un 15 % más grandes (y la barra de instrucciones en PC) |
+| Visual | **Alto contraste** | Paneles opacos, bordes blancos y textos secundarios más claros |
+| Visual · mareo | **Reducir movimiento** | Sin temblor de cámara en la respiración: la agitación se ve con el borde rojo y el punto naranja |
+| Auditiva | **Subtítulos de sonidos** (activado) | Muestra en texto el silbato, los aciertos, los errores, la respiración y la música de fondo |
+| Auditiva | **Volumen de la música** | 100 %, 60 %, 30 % o sin música, para concentrarse en las consignas |
+| Motriz | **Agarre fácil** | Un toque agarra la herramienta y otro la suelta; el masaje no exige mover en círculos; más margen sobre la zona |
+| Cognitiva | **Ritmo tranquilo** | Minijuego de 50 s con barras que bajan más lento, alimentos más lentos y un camino de respiración más ancho |
+
+Además, siempre: se juega con un solo botón o solo con la mirada (VR), la interfaz se acomoda a la altura de la
+cabeza (sentado o parado), cada sonido importante tiene su señal visual y vibración en los controles, en VR la
+barra de instrucciones flota frente a la vista, y nunca se usa solo el color (siempre va con texto o ícono).
 
 ## Recorrido
 
@@ -80,10 +104,15 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 * **Meta Quest / VR:**
   1. En *Edit → Project Settings → XR Plug-in Management* instalalo si te lo pide.
   2. Activá **OpenXR** en la pestaña Android y en la de PC. En *OpenXR → Features* activá
-     *Meta Quest Support* y un perfil de controles (*Oculus Touch Controller Profile*).
+     *Meta Quest Support* y un perfil de controles (*Oculus Touch Controller Profile*; en PC también
+     *Valve Index* y *HTC Vive* si los vas a usar).
   3. Dejá tildado *Initialize XR on Startup*.
 
   El juego detecta el visor solo: la cabeza mueve la cámara y los controles apuntan con láser.
+
+  **Visores compatibles (vía OpenXR):** Meta Quest 2, 3, 3S y Pro (build Android, standalone) y visores de PC
+  (Quest con Link/Air Link, Valve Index, HTC Vive). **Capacidades que usa:** seguimiento de cabeza 6DoF con origen
+  en el piso, controles con seguimiento (láser), gatillo y grip, vibración háptica y modo solo mirada sin controles.
 * **WebGL (navegador):** funciona en 360° con mouse o toque, sin VR.
 
 ## Si algo se ve raro
@@ -104,14 +133,17 @@ Atajos: **M** silencia el sonido y **R** recentra los paneles frente a la vista.
 | Archivo | Qué hace |
 |---|---|
 | `PikiGame.cs` | Flujo completo, todas las pantallas y el paso entre escenas |
-| `Editor/PikiSceneBuilder.cs` | Menú *Piki Recovery*: construye y guarda las 4 escenas |
+| `Editor/PikiSceneBuilder.cs` | Menú *Piki Game*: construye y guarda las 5 escenas y los 4 fundidos, y pone nombre e ícono a la app |
+| `Editor/PikiImportSettings.cs` | Importa los logos como Sprite y la fuente Poppins con la línea base correcta |
+| `PikiBrand.cs` | Marca: nombre, claim, logos (`Resources/PikiMarca`) y tipografía Poppins (`Resources/PikiFuentes`, licencia OFL) |
+| `PikiAccess.cs` | Opciones de accesibilidad (se guardan en el equipo) |
 | `PikiRig.cs` | Cámara 360°, giroscopio, VR (cabeza y controles), puntero, mirada y "mantener presionado" |
 | `PikiEnv.cs` | Cielo, luces, hub de inicio, estadio (tribunas, LED, arcos, torres, marcador, jugadores) y vestuario |
 | `PikiModels.cs` | Holograma corporal, efectos de frío, calor y masaje, y los 22 alimentos 3D |
 | `PikiContent.cs` | Zonas, situaciones al azar, tratamientos, pistas y alimentos con sus valores |
 | `PikiUI.cs` | Paneles, textos, botones e íconos en 3D (sin paquetes extra: SpriteRenderer + TextMesh) |
 | `Audio/` | Audios de fondo. Cada escena tiene un objeto **Audio de la escena** con un *AudioSource* (Loop + Play On Awake): público en 01 y 04, música en 02 y música de calma bien baja (volumen 0,12) en 03. Se cambian desde el Inspector |
-| `PikiAudio.cs` | Sonido sintetizado: público, silbato, música por nivel, ambiente de calma y respiración |
+| `PikiAudio.cs` | Sonido sintetizado: público, silbato, música por nivel, ambiente de calma y respiración (con subtítulos) |
 | `PikiCore.cs` | Materiales, texturas, íconos y mallas procedurales, más las animaciones |
 
 ---

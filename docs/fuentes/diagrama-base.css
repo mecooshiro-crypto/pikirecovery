@@ -1,0 +1,25 @@
+/* Piki · estilos de los diagramas del informe (Manual de marca: Poppins, petróleo, crema, lima) */
+@font-face { font-family: "Poppins"; font-weight: 500; src: url("Poppins-Medium.ttf"); }
+@font-face { font-family: "Poppins"; font-weight: 500; font-style: italic; src: url("Poppins-MediumItalic.ttf"); }
+@font-face { font-family: "Poppins"; font-weight: 700; src: url("Poppins-Bold.ttf"); }
+@font-face { font-family: "Poppins"; font-weight: 800; font-style: italic; src: url("Poppins-ExtraBoldItalic.ttf"); }
+:root {
+  --petroleo: #004856; --abismo: #00333E; --celeste: #009DB6; --lima: #B9D339; --verde: #4FA000;
+  --crema: #F8F6F0; --niebla: #DDDCD8; --arena: #BCB9AD; --carbon: #252525; --ink: #12262B; --ink2: #4A5A5E;
+  --fisica: #FF4D5E; --nutri: #E0B400; --calma: #8E5CF0; --accion: #00B88C; --alerta: #FF8A3D;
+}
+* { box-sizing: border-box; margin: 0; }
+body { font-family: "Poppins", sans-serif; font-weight: 500; color: var(--ink); background: var(--crema); }
+.sheet { position: relative; width: 1920px; height: 1200px; padding: 56px 64px; overflow: hidden; background: var(--crema); }
+.sheet::after { /* la P de fondo como marca de agua (Manual de marca) */
+  content: ""; position: absolute; right: -120px; bottom: -150px; width: 760px; height: 600px; opacity: .045;
+  background: url("piki-isotipo-petroleo.svg") no-repeat center / contain; pointer-events: none; }
+.head { display: flex; align-items: center; gap: 28px; margin-bottom: 30px; }
+.head img { height: 64px; }
+.head .eyebrow { font-size: 15px; font-weight: 700; letter-spacing: .12em; color: var(--celeste); text-transform: uppercase; }
+.head h1 { font-size: 40px; font-weight: 800; font-style: italic; color: var(--petroleo); line-height: 1.15; }
+.head h1 em { color: var(--petroleo); background: linear-gradient(transparent 62%, var(--lima) 62%); font-style: italic; }
+.head p { font-size: 17px; color: var(--ink2); margin-top: 4px; }
+.foot { position: absolute; left: 64px; right: 64px; bottom: 28px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--ink2); }
+.foot b { color: var(--petroleo); }
+svg.wires { position: absolute; inset: 0; z-index: 4; width: 100%; height: 100%; pointer-events: none; overflow: visible; }

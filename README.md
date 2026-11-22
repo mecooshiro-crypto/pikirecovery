@@ -1,4 +1,6 @@
-# Piki Recovery · Fútbol (VR 360°)
+# Piki Game · Fútbol (VR 360°)
+
+**Piki** (antes *PikiRecovery*) · *Recuperar también es entrenar.* La marca sigue el Manual de marca de Piki: isologo, Poppins, petróleo y lima.
 
 Experiencia inmersiva de **recuperación post-partido** para fútbol, en un único archivo `index.html`
 (A-Frame / WebXR). Funciona igual en **Web (360° con mouse o celular)** y en **realidad virtual**
@@ -12,7 +14,7 @@ son los mismos; solo cambia la forma de interactuar.
 
 | # | Momento | Entorno | Qué pasa |
 |---|---------|---------|----------|
-| 0 | Inicio | Espacio neutro (grilla + partículas) | Presentación de Piki Recovery y de las 3 etapas |
+| 0 | Inicio | Espacio neutro (grilla + partículas) | Presentación de Piki Game y de las 3 etapas |
 | 1 | ¿Qué deporte practicás? | Espacio neutro | 6 disciplinas; **Fútbol** está habilitado (el resto aparece como "Próximamente") |
 | 2 | Aparición en la cancha | Estadio al atardecer, tribunas llenas, silbato final | Marcador *FINAL 2–1*, jugadores que se retiran, estadísticas del partido (km, sprints, FC, sudor, kcal) |
 | 3 | **Etapa 1 · Recuperación física** | Estadio + holograma corporal | 3 situaciones **aleatorias** (tipo: dolor / molestia / fatiga / rigidez; zona; lado; intensidad 1–10; señales). El usuario interpreta y elige **Frío, Calor o Masajes**. Si acierta: *Respuesta correcta* y se aplica el tratamiento con animación y reloj. Si no: *No es la mejor opción para esta situación*, una pista y vuelve a intentar (se registra en el resultado). |
@@ -72,3 +74,15 @@ lib/aframe-v1.6.0.min.js   Copia local de A-Frame 1.6.0 (licencia MIT, lib/AFRAM
 
 ---
 *Contenido educativo. Ante un dolor intenso o persistente, consultá a un profesional de la salud.*
+
+## Documentos para el informe (`docs/`)
+
+| Archivo | Qué es |
+|---|---|
+| `G03_TIF_PikiGame_Correcciones.pdf` | Respuesta a la rúbrica del TP3: identidad, accesibilidad, dispositivos VR, user personas, diagrama de flujo, mapa transmedia, nomenclatura y guion de la presentación |
+| `G03_TIF_PikiGame_FlujoDelJuego.png` | Diagrama de flujo del juego (5 escenas) |
+| `G03_TIF_Piki_MapaTransmedia.png` | Mapa transmedia actualizado del ecosistema Piki |
+| `capturas/` | Capturas de la versión web con la marca nueva |
+| `fuentes/` | HTML editables de los diagramas y del PDF (se exportan con Chrome) |
+
+La versión web usa los logos de `assets/marca` y la tipografía Poppins de `assets/fuentes` (licencia OFL).
